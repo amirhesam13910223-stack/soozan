@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}سوزان — ورود آیدی{% endblock %}
+
+{% block body %}
+<div class="wrap" style="max-width:430px;margin-top:10vh">
+  <div style="text-align:center;margin-bottom:26px" data-reveal>
+    <div class="brand" style="justify-content:center"><span class="logo">🔥</span> سوزان</div>
+    <p style="color:var(--dim);font-size:13px;margin-top:10px">نمایشگر محتوای خودتخریب‌شونده</p>
+  </div>
+
+  <div class="card pad" data-reveal>
+    <div class="field">
+      <label class="label" for="uid">آیدی محتوا</label>
+      <input class="input" id="uid" dir="ltr" autocomplete="off" spellcheck="false"
+             style="text-align:center;font-family:var(--mono);letter-spacing:1px"
+             placeholder="آیدی را وارد یا پیست کن">
+    </div>
+    <div class="grid2">
+      <button class="btn btn-ghost" id="btnPaste">📋 پیست</button>
+      <button class="btn btn-acc" id="btnGo">ورود ←</button>
+    </div>
+    <p id="err" class="hidden" style="color:var(--bad);font-size:13px;margin-top:12px;text-align:center"></p>
+    <p style="color:var(--mute);font-size:11.5px;margin-top:16px;text-align:center">
+      محتوا پس از نمایش، برای همیشه می‌سوزد 🔥
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ nonce }}">
+function go(){
+  const v=$("uid").value.trim();
+  if(!/^[a-f0-9]{64}$/.test(v)){
+    $("err").textContent="آیدی معتبر نیست — باید ۶۴ نویه‌ی hex باشد";
+    $("err").classList.remove("hidden");return;
+  }
+  location.href="/v/"+v;
+}
+$("btnGo").addEventListener("click",go);
+$("uid").addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+$("btnPaste").addEventListener("click",async()=>{
+  try{ $("uid").value=(await navigator.clipboard.readText()).trim(); $("err").classList.add("hidden"); }
+  catch(e){ toast("دسترسی به کلیپ‌بورد ممکن نشد","err"); }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block body %}
+<!-- Navigation Bar (فقط برای اپلیکیشن) -->
+<nav class="nav" style="position:sticky;top:0;z-index:50;background:rgba(10,16,34,0.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--line2)">
+  <div class="brand">
+    <span class="logo">🔥</span>
+    <span>سوزان</span>
+  </div>
+  <div class="nav-links">
+    <a href="/" style="color:var(--dim);text-decoration:none;font-size:13px">🏠 خانه</a>
+    <a href="/manage" style="color:var(--acc);text-decoration:none;font-size:13px;font-weight:600;padding:6px 12px;background:var(--acc-bg);border-radius:8px">🔐 پنل مدیریت</a>
+  </div>
+</nav>
+
+{% block app_content %}{% endblock %}
+{% endblock %}

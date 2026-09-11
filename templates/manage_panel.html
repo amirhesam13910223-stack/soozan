@@ -1,0 +1,367 @@
+{% extends "app.html" %}
+{% block title %}سوزان — مدیریت {{ file_info.filename }}{% endblock %}
+
+{% block app_content %}
+<nav class="nav">
+  <div class="brand"><span class="logo">🔐</span> پنل مدیریت</div>
+  <div class="nav-links">
+    <a href="/dashboard">داشبورد</a>
+    <a href="/i">آیدی جدید</a>
+  </div>
+</nav>
+
+<div class="wrap-wide">
+  <div style="margin-bottom:20px" data-reveal>
+    <h1 style="font-size:22px;margin-bottom:6px">{{ file_info.filename }}</h1>
+    <p style="color:var(--dim);font-size:13px">
+      <span class="badge b-{{ 'ok' if file_info.status == 'active' else 'warn' if file_info.status == 'paused' else 'bad' if file_info.status in ('burned','locked') else 'warn' }}">
+        {{ file_info.status_fa }}
+      </span>
+      <span style="color:var(--mute);margin-right:10px">
+        {{ file_info.mime }} · {{ file_info.size_kb }} KB
+      </span>
+    </p>
+  </div>
+
+  <div class="grid2" style="margin-bottom:18px">
+    <div class="card pad" data-reveal>
+      <div class="sec">
+        <h3>📊 اطلاعات کلی</h3>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13.5px;border-bottom:1px solid var(--line2)">
+          <span style="color:var(--dim)">UID</span>
+          <span style="font-family:var(--mono);direction:ltr">{{ file_info.uid[:16] }}…</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13.5px;border-bottom:1px solid var(--line2)">
+          <span style="color:var(--dim)">بازدید</span>
+          <span><strong>{{ file_info.views_count }}</strong> / {{ file_info.max_views }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13.5px">
+          <span style="color:var(--dim)">آپلود</span>
+          <span style="font-family:var(--mono);direction:ltr">{{ file_info.created_at_fa }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card pad" data-reveal>
+      <div class="sec">
+        <h3>🔧 عملیات سریع</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-ghost" onclick="action('pause')" {{ 'disabled' if file_info.status == 'paused' else '' }}>
+            ⏸ مکث موقت
+          </button>
+          <button class="btn btn-ghost" onclick="action('resume')" {{ 'disabled' if file_info.status != 'paused' else '' }}>
+            ▶ ادامه دسترسی
+          </button>
+          <button class="btn btn-ghost" onclick="action('lock')">
+            🔒 قفل دائمی (بدون حذف)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card pad" style="margin-bottom:18px" data-reveal>
+    <div class="sec">
+      <h3>⚠️ عملیات حساس (نیاز به تأیید دو مرحله‌ای)</h3>
+      <div class="grid2">
+        <button class="btn btn-acc" style="background:linear-gradient(135deg,#fb7185,#f43f5e)" onclick="showConfirmModal('burn')">
+          🔥 سوزاندن کامل فایل
+        </button>
+        <button class="btn btn-ghost" onclick="showConfirmModal('revoke')">
+          🔄 صدور مجدد کد مدیریت
+        </button>
+      </div>
+      <p style="color:var(--mute);font-size:11.5px;margin-top:10px">
+        این عملیات نیاز به تأیید با کد یکبارمصرف دارند.
+      </p>
+    </div>
+  </div>
+
+    <!-- ═══ بخش آنالیتیکس پیشرفته (فاز G) ═══ -->
+  <div style="margin-bottom:18px" data-reveal>
+    {% if analytics.anomalies %}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      {% for a in analytics.anomalies %}
+      <div class="alert alert-err" style="flex:1;min-width:220px;margin:0;padding:10px 14px;{{ 'border-inline-start-color:var(--bad)' if a.level == 'bad' else 'border-inline-start-color:var(--warn)' }}">
+        <strong>{{ a.icon }} {{ a.title }}</strong>
+        <div style="font-size:12px;margin-top:4px;opacity:0.9">{{ a.detail }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if analytics.live_count > 0 %}
+    <div class="alert alert-ok" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span class="pulse"></span>
+      <div>
+        <strong>{{ analytics.live_count }} بیننده فعال</strong>
+        <div style="font-size:12px;opacity:0.8">در حال مشاهده محتوا (۲ دقیقه اخیر)</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:14px">
+      <div class="card pad" style="text-align:center">
+        <div style="font-size:28px;font-weight:700;color:var(--acc)" data-count="{{ analytics.total_views }}">0</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:4px">کل بازدید</div>
+      </div>
+      <div class="card pad" style="text-align:center">
+        <div style="font-size:28px;font-weight:700;color:var(--ok)" data-count="{{ analytics.successful_attempts }}">0</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:4px">رمز موفق</div>
+      </div>
+      <div class="card pad" style="text-align:center">
+        <div style="font-size:28px;font-weight:700;color:var(--bad)" data-count="{{ analytics.failed_attempts }}">0</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:4px">رمز ناموفق</div>
+      </div>
+      <div class="card pad" style="text-align:center">
+        <div style="font-size:28px;font-weight:700;color:var(--info)">{{ analytics.live_count }}</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:4px">آنلاین الان</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:18px">
+    <div class="card pad" data-reveal>
+      <div class="sec">
+        <h3>📈 بازدید ۷ روز اخیر</h3>
+        {{ analytics.time_chart_7d | safe }}
+      </div>
+    </div>
+    <div class="card pad" data-reveal>
+      <div class="sec">
+        <h3>📊 توزیع دستگاه</h3>
+        <div style="display:flex;justify-content:center">
+          {{ analytics.device_chart | safe }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card pad" style="margin-bottom:18px" data-reveal>
+    <div class="sec">
+      <h3>📉 نمودار ۳۰ روز اخیر</h3>
+      {{ analytics.time_chart_30d | safe }}
+    </div>
+  </div>
+
+  {% if analytics.first_view_fa %}
+  <div class="card pad" style="margin-bottom:18px" data-reveal>
+    <div class="sec">
+      <h3>📅 بازه مشاهده</h3>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px">
+        <span style="color:var(--dim)">اولین بازدید</span>
+        <span style="font-family:var(--mono);direction:ltr">{{ analytics.first_view_fa }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px">
+        <span style="color:var(--dim)">آخرین بازدید</span>
+        <span style="font-family:var(--mono);direction:ltr">{{ analytics.last_view_fa }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Export Report (فاز H) -->
+  <div class="card pad" style="margin-bottom:18px" data-reveal>
+    <div class="sec">
+      <h3>📤 Export گزارش‌ها</h3>
+      <div class="grid2">
+        <button class="btn btn-ghost" onclick="exportData('attempts')">
+          📊 دانلود تلاش‌های رمز (CSV)
+        </button>
+        <button class="btn btn-ghost" onclick="exportData('views')">
+          📈 دانلود بازدیدها (CSV)
+        </button>
+      </div>
+      <button class="btn btn-acc" style="width:100%;margin-top:10px" onclick="exportData('report')">
+        📄 دانلود گزارش کامل (HTML/PDF)
+      </button>
+      <p style="color:var(--mute);font-size:11.5px;margin-top:10px;text-align:center">
+        گزارش کامل با Ctrl+P به PDF تبدیل می‌شود
+      </p>
+    </div>
+  </div>
+
+
+<div class="card pad" style="margin-bottom:18px" data-reveal>
+    <div class="sec">
+      <h3>🔑 تلاش‌های رمز ({{ attempts|length }} مورد)</h3>
+      {% if attempts %}
+      <div style="max-height:280px;overflow-y:auto">
+        {% for a in attempts[:15] %}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid var(--line2);font-family:var(--mono);direction:ltr">
+          <span class="badge {{ 'b-ok' if a.success else 'b-bad' }}">
+            {{ 'موفق' if a.success else 'ناموفق' }}
+          </span>
+          <span style="color:var(--dim)">{{ a.ip }}</span>
+          <span style="color:var(--mute)">{{ a.attempted_at_fa }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--mute);text-align:center;padding:12px">هنوز تلاشی ثبت نشده</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card pad" style="margin-bottom:18px" data-reveal>
+    <div class="sec">
+      <h3>📜 تاریخچه اکشن‌ها ({{ admin_actions|length }} مورد)</h3>
+      {% if admin_actions %}
+      <div style="max-height:280px;overflow-y:auto">
+        {% for a in admin_actions[:15] %}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid var(--line2);font-family:var(--mono);direction:ltr">
+          <span class="chip">{{ a.action }}</span>
+          <span style="color:var(--dim)">{{ a.ip or 'system' }}</span>
+          <span style="color:var(--mute)">{{ a.at_fa }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--mute);text-align:center;padding:12px">هنوز اکشنی ثبت نشده</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="confirmModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(8px)">
+  <div class="card pad" style="max-width:420px;width:90%">
+    <h2 style="font-size:18px;margin-bottom:14px" id="confirmTitle">تأیید عملیات</h2>
+    <p style="color:var(--dim);font-size:13.5px;line-height:1.8;margin-bottom:14px" id="confirmText"></p>
+    <div class="alert alert-ok" style="text-align:center;padding:14px">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">کد تأیید را وارد کن:</div>
+      <div id="confirmCode" style="font-family:var(--mono);font-size:28px;letter-spacing:6px;color:var(--acc);direction:ltr;font-weight:700">
+        {{ confirm_code }}
+      </div>
+    </div>
+    <input type="text" id="confirmInput" class="input"
+           dir="ltr" maxlength="4"
+           style="text-align:center;font-family:var(--mono);font-size:18px;letter-spacing:4px;margin-top:14px"
+           placeholder="• • • •" autocomplete="off">
+    <div class="grid2" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeConfirmModal()">انصراف</button>
+      <button class="btn btn-acc" id="confirmBtn" onclick="executeConfirmed()">تأیید و اجرا</button>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ nonce }}">
+const MGMT_TOKEN = "{{ mgmt_token }}";
+const CSRF = "{{ csrf }}";
+let pendingAction = null;
+
+async function action(name) {
+  try {
+    const r = await fetch(`/api/manage/${MGMT_TOKEN}/${name}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({csrf: CSRF})
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      window.toast('✓ ' + j.msg);
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      window.toast('✗ ' + (j.error || 'خطا'), 'err');
+    }
+  } catch (e) {
+    window.toast('✗ خطای شبکه', 'err');
+  }
+}
+
+function showConfirmModal(actionType) {
+  pendingAction = actionType;
+  const modal = document.getElementById('confirmModal');
+  const title = document.getElementById('confirmTitle');
+  const text = document.getElementById('confirmText');
+  const btn = document.getElementById('confirmBtn');
+
+  if (actionType === 'burn') {
+    title.textContent = '🔥 تأیید سوزاندن فایل';
+    text.innerHTML = 'این عملیات <strong>غیرقابل بازگشت</strong> است. فایل برای همیشه حذف می‌شود و قابل بازیابی نیست.';
+    btn.style.background = 'linear-gradient(135deg,#fb7185,#f43f5e)';
+    btn.textContent = 'تأیید و سوزاندن';
+  } else if (actionType === 'revoke') {
+    title.textContent = '🔄 تأیید صدور مجدد کد';
+    text.innerHTML = 'کد مدیریت فعلی <strong>بی‌اثر</strong> می‌شود و کد جدید صادر می‌گردد.';
+    btn.textContent = 'تأیید و صدور مجدد';
+  }
+
+  modal.style.display = 'flex';
+  document.getElementById('confirmInput').value = '';
+  setTimeout(() => document.getElementById('confirmInput').focus(), 100);
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirmModal').style.display = 'none';
+  pendingAction = null;
+}
+
+async function executeConfirmed() {
+  const code = document.getElementById('confirmInput').value.trim();
+  if (code.length !== 4) {
+    window.toast('✗ کد ۴ رقمی را وارد کن', 'err');
+    return;
+  }
+  try {
+    const r = await fetch(`/api/manage/${MGMT_TOKEN}/${pendingAction}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({csrf: CSRF, confirm_code: code})
+    });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      closeConfirmModal();
+      if (j.new_admin_code) {
+        window.toast('✓ کد جدید: ' + j.new_admin_code);
+      } else {
+        window.toast('✓ ' + j.msg);
+      }
+      setTimeout(() => location.reload(), 1800);
+    } else {
+      window.toast('✗ ' + (j.error || 'کد تأیید اشتباه است'), 'err');
+    }
+  } catch (e) {
+    window.toast('✗ خطای شبکه', 'err');
+  }
+}
+
+document.getElementById('confirmInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') executeConfirmed();
+  if (e.key === 'Escape') closeConfirmModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeConfirmModal();
+});
+
+
+async function exportData(type) {
+  try {
+    const r = await fetch(`/api/manage/${MGMT_TOKEN}/export/${type}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({csrf: CSRF})
+    });
+    
+    if (r.ok) {
+      // دانلود فایل
+      const blob = await r.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = r.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `export_${type}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      window.toast('✓ دانلود شروع شد');
+    } else {
+      const j = await r.json();
+      window.toast('✗ ' + (j.error || 'خطا در export'), 'err');
+    }
+  } catch (e) {
+    window.toast('✗ خطای شبکه', 'err');
+  }
+}
+
+</script>
+{% endblock %}

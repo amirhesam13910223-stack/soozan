@@ -1,0 +1,139 @@
+{% extends "app.html" %}
+{% block title %}سوزان — خانه{% endblock %}
+
+{% block app_content %}
+<style>
+  .home-container {
+    max-width: 520px;
+    margin: 40px auto;
+    padding: 0 20px;
+    text-align: center;
+  }
+  .home-hero {
+    background: linear-gradient(135deg, var(--bg2), var(--bg3));
+    border: 1px solid var(--line2);
+    border-radius: 20px;
+    padding: 40px 30px;
+    margin-bottom: 24px;
+  }
+  .home-logo {
+    font-size: 64px;
+    margin-bottom: 16px;
+    display: inline-block;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .home-title {
+    font-size: 36px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--acc), #ffa257);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+  .home-subtitle {
+    font-size: 15px;
+    color: var(--dim);
+    line-height: 1.8;
+    margin-bottom: 30px;
+  }
+  .home-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .home-btn {
+    padding: 14px 32px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+  .home-btn-primary {
+    background: linear-gradient(135deg, var(--acc), #ff8557);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(255, 107, 53, 0.3);
+  }
+  .home-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(255, 107, 53, 0.5);
+  }
+  .home-btn-secondary {
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--line);
+  }
+  .home-btn-secondary:hover {
+    border-color: var(--acc);
+    background: var(--acc-bg);
+  }
+  .home-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 30px;
+  }
+  .feature-card {
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    transition: all 0.2s ease;
+  }
+  .feature-card:hover {
+    border-color: var(--acc);
+    transform: translateY(-3px);
+  }
+  .feature-icon { font-size: 28px; margin-bottom: 8px; }
+  .feature-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .feature-desc { font-size: 11px; color: var(--dim); margin-top: 4px; }
+</style>
+
+<div class="home-container">
+  <div class="home-hero">
+    <div class="home-logo">🔥</div>
+    <h1 class="home-title">سوزان</h1>
+    <p class="home-subtitle">
+      ارسال فایل‌های خودتخریب‌شونده با امنیت بالا
+      <br>
+      فایل شما پس از تعداد مشخصی بازدید، برای همیشه حذف می‌شود
+    </p>
+    <div class="home-actions">
+      <a href="/register" class="home-btn home-btn-primary">✨ ثبت‌نام</a>
+      <a href="/login" class="home-btn home-btn-secondary">🔑 ورود</a>
+    </div>
+  </div>
+  <div class="home-features">
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title">رمزنگاری کامل</div>
+      <div class="feature-desc">AES-256-GCM</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏰</div>
+      <div class="feature-title">خودتخریب‌شونده</div>
+      <div class="feature-desc">حذف خودکار</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">آمار کامل</div>
+      <div class="feature-desc">نمودار و تحلیل</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <div class="feature-title">امنیت بالا</div>
+      <div class="feature-desc">اسکن بدافزار</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

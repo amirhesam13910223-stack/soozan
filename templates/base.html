@@ -108,6 +108,57 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* ═══ Android WebView Force-Dark Fix ═══ */
+/* غیرفعال کردن force-dark روی عناصر ورودی */
+input, textarea, select {
+  color-scheme: light !important;
+  -webkit-text-fill-color: initial !important;
+}
+
+/* فیلدهای ورودی: متن تیره روی پس‌زمینه روشن */
+input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+textarea {
+  color: #0f1730 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  caret-color: #0f1730 !important;
+  -webkit-text-fill-color: #0f1730 !important;
+}
+
+input:focus, textarea:focus {
+  border-color: #ff6b35 !important;
+  outline: 2px solid #ff6b3540 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* آیکون‌ها و toolbar: اجبار به نمایش صحیح */
+.toolbar-btn, .viewer-btn, .action-btn,
+.toolbar-btn svg, .viewer-btn svg, .action-btn svg {
+  color-scheme: light !important;
+  -webkit-text-fill-color: initial !important;
+}
+
+.toolbar-btn svg path,
+.toolbar-btn svg circle,
+.toolbar-btn svg rect,
+.toolbar-btn svg line,
+.viewer-btn svg path {
+  fill: #0f1730 !important;
+  stroke: #0f1730 !important;
+}
+
+/* برای پس‌زمینه دکمه‌های toolbar */
+.toolbar-btn, .viewer-btn {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
 </style>
 {% block head %}{% endblock %}
 </head>

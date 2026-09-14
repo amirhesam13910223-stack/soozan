@@ -951,11 +951,11 @@ def _migrate_users_2fa(conn):
 def bootstrap():
     """راه‌اندازی اولیه هسته"""
     init_db()
-        # Migration خودکار ستون‌های 2FA
+    # Migration خودکار ستون‌های 2FA
     with get_db() as _c:
         _migrate_users_2fa(_c)
 
-_ = MasterKeyManager.instance()  # تولید/بارگذاری کلید ارشد
+    _ = MasterKeyManager.instance()  # تولید/بارگذاری کلید ارشد
     audit("CORE_BOOTSTRAPPED")
 
 

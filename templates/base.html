@@ -109,56 +109,50 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
 
-/* ═══ Android WebView Force-Dark Fix ═══ */
-/* غیرفعال کردن force-dark روی عناصر ورودی */
+/* ═══ input های تیره یکپارچه (وب + اپ) ═══ */
 input, textarea, select {
-  color-scheme: light !important;
-  -webkit-text-fill-color: initial !important;
+  color-scheme: dark !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
 }
-
-/* فیلدهای ورودی: متن تیره روی پس‌زمینه روشن */
-input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
-textarea {
-  color: #0f1730 !important;
-  background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  caret-color: #0f1730 !important;
-  -webkit-text-fill-color: #0f1730 !important;
+input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+textarea, select {
+  background: #0b1226 !important;
+  color: #eef2ff !important;
+  -webkit-text-fill-color: #eef2ff !important;
+  border: 1px solid #31427a !important;
+  border-radius: 12px !important;
+  caret-color: #ff6b35 !important;
 }
-
-input:focus, textarea:focus {
+input:focus, textarea:focus, select:focus {
   border-color: #ff6b35 !important;
-  outline: 2px solid #ff6b3540 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px #ff6b3526 !important;
 }
-
 input::placeholder, textarea::placeholder {
-  color: #64748b !important;
-  -webkit-text-fill-color: #64748b !important;
+  color: #5f6c93 !important;
+  -webkit-text-fill-color: #5f6c93 !important;
   opacity: 1 !important;
 }
+select option { background: #0b1226 !important; color: #eef2ff !important; }
 
-/* آیکون‌ها و toolbar: اجبار به نمایش صحیح */
-.toolbar-btn, .viewer-btn, .action-btn,
-.toolbar-btn svg, .viewer-btn svg, .action-btn svg {
-  color-scheme: light !important;
-  -webkit-text-fill-color: initial !important;
+/* ═══ دیده‌شدن toolbar مشاهده فایل (وب + اپ) ═══ */
+[class*="toolbar"] button, [class*="vbar"] button, [class*="controls"] button,
+[class*="bar"] button, .viewer button {
+  background: #0f1730 !important;
+  color: #ffa257 !important;
+  border: 1px solid #31427a !important;
 }
-
-.toolbar-btn svg path,
-.toolbar-btn svg circle,
-.toolbar-btn svg rect,
-.toolbar-btn svg line,
-.viewer-btn svg path {
-  fill: #0f1730 !important;
-  stroke: #0f1730 !important;
+[class*="toolbar"] button svg, [class*="vbar"] button svg,
+[class*="controls"] button svg, [class*="bar"] button svg, .viewer button svg {
+  color: #ffa257 !important;
 }
-
-/* برای پس‌زمینه دکمه‌های toolbar */
-.toolbar-btn, .viewer-btn {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border: 1px solid #cbd5e1 !important;
-}
-
+[class*="toolbar"] button svg [stroke]:not([stroke="none"]),
+[class*="vbar"] button svg [stroke]:not([stroke="none"]),
+[class*="bar"] button svg [stroke]:not([stroke="none"]) { stroke: currentColor !important; }
+[class*="toolbar"] button svg [fill]:not([fill="none"]),
+[class*="vbar"] button svg [fill]:not([fill="none"]),
+[class*="bar"] button svg [fill]:not([fill="none"]) { fill: currentColor !important; }
 </style>
 {% block head %}{% endblock %}
 </head>

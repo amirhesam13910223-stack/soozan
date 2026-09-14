@@ -28,6 +28,60 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+/* ═══ Paste override — safe for Android WebView ═══ */
+(function(){
+  function showPasteHint(el){
+    var hint = document.getElementById('paste-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'paste-hint';
+      hint.style.cssText = 'position:fixed;bottom:90px;right:16px;left:16px;background:#0f1730;border:1px solid #31427a;color:#eef2ff;padding:12px 16px;border-radius:12px;font-size:13px;z-index:999;box-shadow:0 8px 30px rgba(0,0,0,.55);text-align:center;line-height:1.9';
+      document.body.appendChild(hint);
+    }
+    hint.textContent = 'کلیپ‌بورد در دسترس نیست؛ انگشتت را روی کادر ورودی نگه دار و از منوی باز شده گزینه «جای‌گذاری / Paste» را بزن.';
+    hint.style.display = 'block';
+    if (el) el.focus();
+    setTimeout(function(){ hint.style.display='none'; }, 7000);
+  }
+  function doPaste(targetEl){
+    if (window.SoozanBridge && window.SoozanBridge.requestPaste) {
+      window.__onPaste = function(t){
+        if (t) { targetEl.value = t; targetEl.dispatchEvent(new Event('input')); }
+        else { showPasteHint(targetEl); }
+      };
+      window.SoozanBridge.requestPaste();
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function(t){
+        if (t) { targetEl.value = t; targetEl.dispatchEvent(new Event('input')); }
+        else { showPasteHint(targetEl); }
+      }).catch(function(){ showPasteHint(targetEl); });
+    } else {
+      showPasteHint(targetEl);
+    }
+  }
+  function init(){
+    var btns = Array.prototype.slice.call(document.querySelectorAll('button, .btn, [role="button"]'));
+    var pasteBtn = null;
+    btns.forEach(function(b){
+      var sig = ((b.textContent||'') + ' ' + (b.id||'') + ' ' + (b.className||'')).toLowerCase();
+      if (sig.indexOf('paste') !== -1 || sig.indexOf('پیست') !== -1) pasteBtn = b;
+    });
+    var input = document.querySelector('input[id*="uid"], input[name*="uid"], input[id*="id"], input[type="text"], input:not([type])');
+    if (pasteBtn && input) {
+      // clone کردن = حذف listener های قدیمی
+      var clone = pasteBtn.cloneNode(true);
+      pasteBtn.parentNode.replaceChild(clone, pasteBtn);
+      clone.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); doPaste(input); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
 <script nonce="{{ nonce }}">
 function go(){
   const v=$("uid").value.trim();

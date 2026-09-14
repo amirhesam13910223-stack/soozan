@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070b14">
+<meta name="referrer" content="no-referrer">
+<title>احراز هویت دو مرحله‌ای — سوزان</title>
+<style nonce="{{ nonce }}">
+@font-face{font-family:Vazirmatn;font-weight:400;src:url("/assets/fonts/Vazirmatn-Regular.woff2") format("woff2");font-display:swap}
+@font-face{font-family:Vazirmatn;font-weight:500;src:url("/assets/fonts/Vazirmatn-Medium.woff2") format("woff2");font-display:swap}
+@font-face{font-family:Vazirmatn;font-weight:700;src:url("/assets/fonts/Vazirmatn-Bold.woff2") format("woff2");font-display:swap}
+
+:root{
+--bg:#070b14;--card:#0f1730cc;--solid:#0f1730;--line:#1d2a4d;--line2:#31427a;
+--text:#eef2ff;--dim:#9aa7cf;--mute:#5f6c93;
+--acc:#ff6b35;--acc2:#ffa257;--acc-soft:#ff6b3524;
+--ok:#34d399;--ok-soft:#34d39920;--bad:#fb7185;--bad-soft:#fb718520;
+--r:20px;--rs:12px;--shadow:0 12px 44px #00000073;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:Vazirmatn,system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:32px;max-width:420px;width:100%;box-shadow:var(--shadow);
+  backdrop-filter:blur(12px);
+}
+h1{font-size:22px;font-weight:700;margin-bottom:8px;text-align:center}
+.subtitle{color:var(--dim);font-size:14px;text-align:center;margin-bottom:24px}
+.input{
+  width:100%;padding:14px 16px;background:var(--solid);border:1px solid var(--line);
+  border-radius:var(--rs);color:var(--text);font-size:16px;font-family:inherit;
+  text-align:center;letter-spacing:8px;font-weight:500;
+}
+.input:focus{outline:none;border-color:var(--acc)}
+.btn{
+  width:100%;padding:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));
+  border:none;border-radius:var(--rs);color:#fff;font-size:16px;font-weight:700;
+  font-family:inherit;cursor:pointer;margin-top:16px;
+}
+.btn:hover{filter:brightness(1.1)}
+.error{
+  background:var(--bad-soft);border:1px solid var(--bad);border-radius:var(--rs);
+  padding:12px;color:var(--bad);font-size:14px;margin-bottom:16px;text-align:center;
+}
+.success{
+  background:var(--ok-soft);border:1px solid var(--ok);border-radius:var(--rs);
+  padding:12px;color:var(--ok);font-size:14px;margin-bottom:16px;text-align:center;
+}
+.backup-codes{
+  background:var(--solid);border:1px solid var(--line);border-radius:var(--rs);
+  padding:16px;margin:16px 0;
+}
+.backup-codes h3{font-size:14px;color:var(--dim);margin-bottom:12px}
+.backup-codes code{
+  display:block;padding:8px;background:var(--bg);border-radius:8px;
+  color:var(--acc2);font-family:monospace;font-size:14px;margin-bottom:8px;
+  text-align:center;letter-spacing:2px;
+}
+.qr-box{
+  background:#fff;border-radius:var(--rs);padding:16px;margin:16px auto;
+  max-width:240px;text-align:center;
+}
+.secret-box{
+  background:var(--solid);border:1px solid var(--line);border-radius:var(--rs);
+  padding:12px;margin:16px 0;text-align:center;
+}
+.secret-box code{
+  color:var(--acc2);font-family:monospace;font-size:13px;word-break:break-all;
+}
+.hint{color:var(--mute);font-size:12px;text-align:center;margin-top:16px}
+</style>
+</head>
+<body>
+
+<div class="card">
+{% if mode == "login" %}
+  <h1>🔐 احراز هویت دو مرحله‌ای</h1>
+  <p class="subtitle">کد ۶ رقمی از برنامه Authenticator را وارد کنید</p>
+  
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  
+  <form method="POST">
+    <input type="text" name="code" class="input" placeholder="۱۲۳۴۵۶"
+           maxlength="8" autocomplete="one-time-code" required autofocus>
+    <button type="submit" class="btn">ورود</button>
+  </form>
+  
+  <p class="hint">اگر به برنامه دسترسی ندارید، یکی از کدهای پشتیبان را وارد کنید</p>
+
+{% elif mode == "setup" %}
+  <h1>⚙️ راه‌اندازی احراز هویت دو مرحله‌ای</h1>
+  <p class="subtitle">این QR را با Google Authenticator اسکن کنید</p>
+  
+  <div class="qr-box">{{ qr_svg | safe }}</div>
+  
+  <div class="secret-box">
+    <p style="font-size:12px;color:var(--dim);margin-bottom:8px">یا کد را دستی وارد کنید:</p>
+    <code>{{ secret }}</code>
+  </div>
+  
+  <div class="backup-codes">
+    <h3>⚠️ کدهای پشتیبان (این‌ها را در جای امن نگه دارید)</h3>
+    {% for code in backup_codes %}
+    <code>{{ code }}</code>
+    {% endfor %}
+  </div>
+  
+  <form method="POST" action="/account/2fa/activate">
+    <input type="text" name="code" class="input" placeholder="کد ۶ رقمی فعلی"
+           maxlength="6" autocomplete="one-time-code" required autofocus>
+    <button type="submit" class="btn">فعال‌سازی 2FA</button>
+  </form>
+
+{% elif mode == "setup_error" %}
+  <h1>❌ خطا در فعال‌سازی</h1>
+  <div class="error">{{ error }}</div>
+  <a href="/account/2fa" style="display:block;text-align:center;color:var(--acc);text-decoration:none;margin-top:16px">بازگشت</a>
+
+{% elif mode == "manage" %}
+  <h1>🔐 مدیریت احراز هویت دو مرحله‌ای</h1>
+  
+  {% if enabled %}
+    <div class="success">✅ 2FA فعال است</div>
+    <form method="POST" action="/account/2fa/disable">
+      <button type="submit" class="btn" style="background:var(--bad)">غیرفعال‌سازی 2FA</button>
+    </form>
+  {% else %}
+    <div class="error">⚠️ 2FA غیرفعال است</div>
+    <form method="POST" action="/account/2fa/setup">
+      <button type="submit" class="btn">فعال‌سازی 2FA</button>
+    </form>
+  {% endif %}
+  
+  <a href="/dashboard" style="display:block;text-align:center;color:var(--dim);text-decoration:none;margin-top:16px">بازگشت به داشبورد</a>
+{% endif %}
+</div>
+
+</body>
+</html>

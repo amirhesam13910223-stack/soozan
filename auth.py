@@ -5,7 +5,8 @@
 """
 
 from flask import Blueprint, request, session, redirect, url_for
-from core import Auth, Security, audit, client_ip
+from core import Auth, Security, audit, client_ip, get_db
+import totp
 from ui import render
 from pathlib import Path
 
@@ -35,6 +36,12 @@ def login():
         if not ok:
             Security.violation(ip, "login_fail")
             return render(_read("auth.html"), mode="login", error=msg, username=username)
+        # اگر 2FA فعال است، به مرحله دوم برو
+        if Auth.is_totp_enabled(user_id):
+            session["pending_2fa_user_id"] = user_id
+            audit("LOGIN_2FA_PENDING", ip, f"user={username}")
+            return redirect("/login/totp")
+        
         session["user_id"] = user_id
         audit("LOGIN_OK", ip, f"user={username}")
         return redirect("/dashboard")
@@ -77,3 +84,102 @@ def require_auth(fn):
             return redirect("/login")
         return fn(*args, **kwargs)
     return wrapper
+
+# ═══════════════════════════════════════════════════════════
+# 2FA (TOTP) — ورود دومرحله‌ای و مدیریت
+# ═══════════════════════════════════════════════════════════
+@bp.route("/login/totp", methods=["GET", "POST"])
+def login_totp():
+    """مرحله دوم ورود: دریافت کد TOTP یا کد پشتیبان"""
+    pending_id = session.get("pending_2fa_user_id")
+    if pending_id is None:
+        return redirect("/login")
+    
+    if request.method == "POST":
+        ip = client_ip()
+        if not Security.rate_check(ip, "totp"):
+            return render(_read("totp.html"), mode="login",
+                         error="تلاش بیش از حد. چند دقیقه صبر کنید.")
+        
+        code = request.form.get("code", "").strip()
+        
+        # اول TOTP، بعد backup code
+        ok, msg = Auth.verify_totp(pending_id, code)
+        if not ok:
+            ok, msg = Auth.use_backup_code(pending_id, code)
+        
+        if not ok:
+            Security.violation(ip, "totp_login_fail")
+            return render(_read("totp.html"), mode="login", error=msg)
+        
+        # ورود کامل
+        session.pop("pending_2fa_user_id", None)
+        session["user_id"] = pending_id
+        audit("LOGIN_2FA_OK", ip, f"user_id={pending_id}")
+        return redirect("/dashboard")
+    
+    return render(_read("totp.html"), mode="login")
+
+
+@bp.route("/account/2fa", methods=["GET"])
+@require_auth
+def account_2fa():
+    """صفحه مدیریت 2FA"""
+    user_id = session["user_id"]
+    enabled = Auth.is_totp_enabled(user_id)
+    return render(_read("totp.html"), mode="manage", enabled=enabled)
+
+
+@bp.route("/account/2fa/setup", methods=["POST"])
+@require_auth
+def account_2fa_setup():
+    """شروع راه‌اندازی 2FA — نمایش QR و کدهای پشتیبان"""
+    user_id = session["user_id"]
+    
+    if Auth.is_totp_enabled(user_id):
+        return redirect("/account/2fa")
+    
+    secret_b32, backup_codes = Auth.setup_totp(user_id)
+    
+    # ذخیره موقت در session برای مرحله activate
+    session["totp_setup_secret"] = secret_b32
+    session["totp_setup_backups"] = backup_codes
+    
+    # ساخت URI و QR
+    with get_db() as conn:
+        row = conn.execute("SELECT username FROM users WHERE id=?", (user_id,)).fetchone()
+    username = row["username"] if row else "user"
+    
+    uri = totp.build_provisioning_uri("Soozan", username, secret_b32)
+    qr_svg = totp.generate_qr_svg(uri)
+    
+    return render(_read("totp.html"), mode="setup",
+                 secret=secret_b32, backup_codes=backup_codes,
+                 qr_svg=qr_svg, uri=uri)
+
+
+@bp.route("/account/2fa/activate", methods=["POST"])
+@require_auth
+def account_2fa_activate():
+    """فعال‌سازی 2FA بعد از تأیید کد"""
+    user_id = session["user_id"]
+    code = request.form.get("code", "").strip()
+    
+    ok, msg = Auth.activate_totp(user_id, code)
+    if not ok:
+        return render(_read("totp.html"), mode="setup_error", error=msg)
+    
+    # پاک کردن session موقت
+    session.pop("totp_setup_secret", None)
+    session.pop("totp_setup_backups", None)
+    
+    return redirect("/account/2fa")
+
+
+@bp.route("/account/2fa/disable", methods=["POST"])
+@require_auth
+def account_2fa_disable():
+    """غیرفعال‌سازی 2FA"""
+    user_id = session["user_id"]
+    ok, msg = Auth.disable_totp(user_id)
+    return redirect("/account/2fa")

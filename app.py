@@ -59,6 +59,15 @@ def assets(path):
 
 
 # ── سلامت سرور ──
+@app.route("/privacy")
+def privacy():
+    """صفحه سیاست حریم خصوصی (عمومی)"""
+    from flask import render_template
+    import secrets
+    nonce = secrets.token_urlsafe(24)
+    return render_template("privacy.html", nonce=nonce)
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "phase": 2}

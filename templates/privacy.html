@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070b14">
+<meta name="referrer" content="no-referrer">
+<title>سیاست حریم خصوصی — سوزان</title>
+<style nonce="{{ nonce }}">
+@font-face{font-family:Vazirmatn;font-weight:400;src:url("/assets/fonts/Vazirmatn-Regular.woff2") format("woff2");font-display:swap}
+@font-face{font-family:Vazirmatn;font-weight:700;src:url("/assets/fonts/Vazirmatn-Bold.woff2") format("woff2");font-display:swap}
+:root{--bg:#070b14;--card:#0f1730cc;--line:#1d2a4d;--text:#eef2ff;--dim:#9aa7cf;--mute:#5f6c93;--acc:#ff6b35;--acc2:#ffa257;--ok:#34d399}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Vazirmatn,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.9;padding:24px 16px 80px}
+.wrap{max-width:760px;margin:0 auto}
+header{text-align:center;padding:32px 0 24px}
+header h1{font-size:26px;font-weight:700;margin-bottom:8px}
+header p{color:var(--dim);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:16px;backdrop-filter:blur(10px)}
+h2{font-size:17px;color:var(--acc2);margin-bottom:12px;font-weight:700}
+ul{padding-right:20px}
+li{margin-bottom:8px;color:var(--dim);font-size:14px}
+li strong{color:var(--text)}
+.hl{color:var(--ok);font-weight:700}
+.bad{color:#fb7185;font-weight:700}
+.note{background:#ff6b3512;border:1px solid #ff6b3540;border-radius:12px;padding:12px 16px;font-size:13px;color:var(--dim);margin-top:12px}
+footer{text-align:center;color:var(--mute);font-size:12px;padding:24px 0}
+footer a{color:var(--dim);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>🔥 سیاست حریم خصوصی سوزان</h1>
+  <p>آخرین به‌روزرسانی: شهریور ۱۴۰۵ (سپتامبر ۲۰۲۶) · نسخه ۱.۰</p>
+</header>
+
+<div class="card">
+  <h2>۱. مقدمه</h2>
+  <p style="color:var(--dim);font-size:14px">
+    سوزان («ما») سرویس اشتراک‌گذاری فایل‌های خودامحا است؛ فایل‌هایی که پس از مشاهده یا انقضا،
+    برای همیشه و به‌صورت غیرقابل‌بازیابی نابود می‌شوند. این سیاست توضیح می‌دهد چه داده‌هایی را
+    جمع‌آوری می‌کنیم، چرا، و شما چه حقوقی دارید. استفاده شما از سوزان به‌معنای پذیرش این سیاست است.
+  </p>
+</div>
+
+<div class="card">
+  <h2>۲. داده‌هایی که جمع‌آوری می‌کنیم</h2>
+  <ul>
+    <li><strong>داده حساب کاربری:</strong> نام کاربری و رمز عبور (تنها به‌صورت هش‌شده با الگوریتم scrypt — رمز خام هرگز ذخیره نمی‌شود).</li>
+    <li><strong>لاگ‌های قانونی:</strong> نشانی IP و زمان رویدادهای امنیتی (ورود، آپلود، مشاهده) بر پایه الزامات قانونی جمهوری اسلامی ایران.</li>
+    <li><strong>متادیتای فایل:</strong> شناسه یکتا (UID)، زمان ساخت، شمارنده مشاهده و وضعیت انقضا — <span class="hl">نه نام فایل و نه محتوای آن</span>.</li>
+    <li><strong>کوکی نشست:</strong> یک کوکی ضروری برای نگه‌داشتن ورود شما (HttpOnly و SameSite=Strict).</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>۳. آنچه هرگز جمع‌آوری یا ذخیره نمی‌کنیم</h2>
+  <ul>
+    <li><span class="hl">محتوای فایل‌ها</span> پس از امحا هیچ‌جا نگهداری نمی‌شود؛ امحا با بازنویسی امن (shred) انجام می‌شود.</li>
+    <li>فایل‌ها در حالت سکون با <strong>AES-256-GCM</strong> و کلید یک‌بارمصرف per-file رمزنگاری‌اند.</li>
+    <li><span class="bad">بدون</span> ابزار تبلیغاتی، ردیاب شخص ثالث، پیکسل تبلیغ یا Google Analytics.</li>
+    <li><span class="bad">بدون</span> فروش، اجاره یا معامله داده با هیچ شخص یا شرکتی.</li>
+    <li><span class="bad">بدون</span> پروفایل‌سازی رفتاری یا هدف‌گذاری تبلیغاتی.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>۴. هدف پردازش داده</h2>
+  <ul>
+    <li>ارائه خدمت اصلی: آپلود، نمایش یک‌بارمصرف و امحای فایل</li>
+    <li>امنیت حساب و جلوگیری از سوءاستفاده (محدودیت نرخ، مسدودسازی خودکار)</li>
+    <li>ایفای تکالیف قانونی (نگهداری لاگ‌های امنیتی در حد الزام قانون)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>۵. مدت نگهداری و امحا</h2>
+  <ul>
+    <li><strong>فایل‌ها:</strong> بلافاصله پس از تکمیل شمارنده مشاهده یا انقضا — امحای غیرقابل‌بازیابی.</li>
+    <li><strong>لاگ‌های امنیتی:</strong> تنها تا مدت لازم برای امنیت و الزام قانونی، سپس حذف.</li>
+    <li><strong>حساب کاربری:</strong> با درخواست حذف حساب، داده‌های شخصی بدون تأخیر پاک می‌شود.</li>
+  </ul>
+  <div class="note">⚠️ پس از امحای فایل، هیچ نسخه پشتیبان از محتوای آن وجود ندارد — حتی برای خود ما.</div>
+</div>
+
+<div class="card">
+  <h2>۶. اشتراک‌گذاری با اشخاص ثالث</h2>
+  <ul>
+    <li><strong>درگاه پرداخت</strong> (در طرح‌های پولی آینده): تنها داده ضروری تراکنش، نزد درگاه معتبر دارای مجوز.</li>
+    <li><strong>مقامات قضایی:</strong> تنها در صورت وجود حکم قانونی معتبر و در چارچوب قانون.</li>
+    <li>در غیر این صورت: <span class="hl">هرگز</span>.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>۷. تدابیر امنیتی</h2>
+  <ul>
+    <li>رمزنگاری AES-256-GCM برای فایل‌ها و داده‌های حساس، با مدیریت کلید سلسله‌مراتبی (KEK/DEK)</li>
+    <li>هش رمز عبور با scrypt و Salt منحصر به فرد</li>
+    <li>احراز هویت دومرحله‌ای (TOTP) اختیاری برای همه کاربران</li>
+    <li>هدرهای امنیتی HTTP، محدودیت نرخ و تست نفوذ دوره‌ای</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>۸. حقوق شما</h2>
+  <ul>
+    <li>حق دسترسی به داده‌های خودتان</li>
+    <li>حق اصلاح داده نادرست</li>
+    <li>حق حذف حساب و فراموش‌شدن</li>
+    <li>حق اعتراض به پردازش و حق دریافت خروجی داده</li>
+  </ul>
+  <div class="note">📮 برای اعمال هر یک از این حقوق: <strong>privacy@soozan.ir</strong> (پس از ثبت دامنه فعال می‌شود)</div>
+</div>
+
+<div class="card">
+  <h2>۹. کودکان و نوجوانان</h2>
+  <p style="color:var(--dim);font-size:14px">
+    استفاده افراد زیر ۱۵ سال تنها با رضایت والدین یا سرپرست قانونی مجاز است.
+    ما آگاهانه داده کودکان را جمع‌آوری نمی‌کنیم.
+  </p>
+</div>
+
+<div class="card">
+  <h2>۱۰. تغییرات این سیاست</h2>
+  <p style="color:var(--dim);font-size:14px">
+    هر تغییر با درج تاریخ جدید در همین صفحه منتشر می‌شود؛ برای تغییرات اساسی، اطلاع‌رسانی درون‌برنامه‌ای انجام خواهد شد.
+  </p>
+</div>
+
+<div class="card">
+  <h2>۱۱. انطباق قانونی</h2>
+  <p style="color:var(--dim);font-size:14px">
+    این سیاست مطابق «قانون حفاظت از داده‌های شخصی» و «قانون جرایم رایانه‌ای» جمهوری اسلامی ایران
+    و با رعایت اصل حداقل‌سازی داده تدوین شده است.
+  </p>
+</div>
+
+<footer>
+  <a href="/">بازگشت به سوزان</a>
+</footer>
+
+</div>
+</body>
+</html>

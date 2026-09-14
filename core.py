@@ -936,10 +936,26 @@ def verify_file_password(pw: str, stored: str) -> bool:
     return hmac.compare_digest(dk, expected)
 
 
+def _migrate_users_2fa(conn):
+    """Migration خودکار: افزودن ستون‌های 2FA به users اگر وجود ندارند"""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    if "totp_secret" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN totp_secret BLOB")
+    if "totp_enabled" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0")
+    if "backup_codes" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN backup_codes TEXT")
+    conn.commit()
+
+
 def bootstrap():
     """راه‌اندازی اولیه هسته"""
     init_db()
-    _ = MasterKeyManager.instance()  # تولید/بارگذاری کلید ارشد
+        # Migration خودکار ستون‌های 2FA
+    with get_db() as _c:
+        _migrate_users_2fa(_c)
+
+_ = MasterKeyManager.instance()  # تولید/بارگذاری کلید ارشد
     audit("CORE_BOOTSTRAPPED")
 
 

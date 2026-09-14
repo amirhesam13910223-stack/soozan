@@ -25,6 +25,8 @@ from typing import Optional, Dict, Any, Tuple
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 from cryptography.hazmat.backends import default_backend
+import totp
+
 
 # ═══════════════════════════════════════════════════════════════
 #  پیکربندی
@@ -185,6 +187,10 @@ class MasterKeyManager:
             ).derive(self._kek)
             self._session_key_kek = self._kek
         return self._session_key_cache
+
+    def kek(self) -> bytes:
+        """دسترسی عمومی به KEK (برای رمزنگاری خارج از wrap/unwrap)"""
+        return self._kek
 
 
 class FileCrypto:
@@ -436,6 +442,200 @@ class Auth:
 # ═══════════════════════════════════════════════════════════════
 #  ۵) امنیت عملیاتی: محدودیت نرخ + بن + هانی‌پات
 # ═══════════════════════════════════════════════════════════════
+
+    # ═══════════════════════════════════════════════════════
+    # 2FA (TOTP)
+    # ═══════════════════════════════════════════════════════
+    @classmethod
+    def _encrypt_totp_secret(cls, secret_b32: str) -> bytes:
+        """رمزنگاری secret با KEK (AES-256-GCM) — nonce 12 بایت + ciphertext"""
+        from core import MasterKeyManager
+        kek = MasterKeyManager.instance().kek()
+        aesgcm = AESGCM(kek)
+        nonce = os.urandom(12)
+        ciphertext = aesgcm.encrypt(nonce, secret_b32.encode("utf-8"), None)
+        return nonce + ciphertext  # 12 + len(ciphertext)
+
+    @classmethod
+    def _decrypt_totp_secret(cls, blob: bytes) -> str:
+        """رمزگشایی secret با KEK"""
+        from core import MasterKeyManager
+        kek = MasterKeyManager.instance().kek()
+        aesgcm = AESGCM(kek)
+        nonce, ciphertext = blob[:12], blob[12:]
+        return aesgcm.decrypt(nonce, ciphertext, None).decode("utf-8")
+
+    @classmethod
+    def _hash_backup_code(cls, code: str) -> str:
+        """هش کد پشتیبان با scrypt (ساده‌تر از پسورد، چون کوتاه است)"""
+        salt = os.urandom(8).hex()
+        h = hashlib.scrypt(
+            code.encode("utf-8"),
+            salt=salt.encode("utf-8"),
+            n=2**14, r=8, p=1, dklen=32
+        ).hex()
+        return f"{salt}${h}"
+
+    @classmethod
+    def _verify_backup_code(cls, stored: str, code: str) -> bool:
+        if "$" not in stored:
+            return False
+        salt, h = stored.split("$", 1)
+        try:
+            calc = hashlib.scrypt(
+                code.encode("utf-8"),
+                salt=salt.encode("utf-8"),
+                n=2**14, r=8, p=1, dklen=32
+            ).hex()
+            import hmac as _hmac
+            return _hmac.compare_digest(calc, h)
+        except Exception:
+            return False
+
+    @classmethod
+    def is_totp_enabled(cls, user_id: int) -> bool:
+        """آیا 2FA برای این کاربر فعال است؟"""
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT totp_enabled FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            return row is not None and row["totp_enabled"] == 1
+
+    @classmethod
+    def setup_totp(cls, user_id: int) -> tuple:
+        """
+        شروع راه‌اندازی 2FA — secret و backup codes تولید می‌کند
+        هنوز active نشده (user باید یک کد TOTP معتبر وارد کند)
+        خروجی: (secret_b32, backup_codes_list)
+        """
+        secret_b32 = totp.generate_secret()
+        backup_codes = totp.generate_backup_codes(8)
+
+        # ذخیره موقت در session-like storage (در pending_2fa_setup)
+        # برای سادگی، در users به‌صورت temporary ذخیره می‌کنیم
+        # بعد از تأیید کد، totp_enabled=1 می‌شود
+        
+        # فعلاً secret را ذخیره می‌کنیم ولی totp_enabled=0 می‌ماند
+        encrypted = cls._encrypt_totp_secret(secret_b32)
+        hashed_backups = json.dumps([cls._hash_backup_code(c) for c in backup_codes])
+        
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE users SET totp_secret=?, backup_codes=? WHERE id=?",
+                (encrypted, hashed_backups, user_id)
+            )
+        
+        audit("TOTP_SETUP_STARTED", detail=f"user_id={user_id}")
+        return secret_b32, backup_codes
+
+    @classmethod
+    def activate_totp(cls, user_id: int, code: str) -> tuple:
+        """
+        فعال‌سازی 2FA بعد از دریافت کد معتبر از کاربر
+        خروجی: (success, message)
+        """
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT totp_secret, totp_enabled FROM users WHERE id=?",
+                (user_id,)
+            ).fetchone()
+        
+        if row is None:
+            return False, "کاربر یافت نشد"
+        if row["totp_enabled"] == 1:
+            return False, "2FA قبلاً فعال است"
+        if row["totp_secret"] is None:
+            return False, "ابتدا باید setup شود"
+        
+        try:
+            secret_b32 = cls._decrypt_totp_secret(row["totp_secret"])
+        except Exception:
+            return False, "خطا در رمزگشایی secret"
+        
+        if not totp.verify_code(secret_b32, code):
+            Security.violation(client_ip(), "totp_setup_fail")
+            return False, "کد نامعتبر است"
+        
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE users SET totp_enabled=1 WHERE id=?", (user_id,)
+            )
+        
+        audit("TOTP_ACTIVATED", detail=f"user_id={user_id}")
+        return True, "2FA فعال شد"
+
+    @classmethod
+    def verify_totp(cls, user_id: int, code: str) -> tuple:
+        """
+        بررسی کد TOTP در هنگام ورود
+        خروجی: (success, message)
+        """
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT totp_secret, totp_enabled FROM users WHERE id=?",
+                (user_id,)
+            ).fetchone()
+        
+        if row is None or row["totp_enabled"] != 1:
+            return False, "2FA فعال نیست"
+        
+        try:
+            secret_b32 = cls._decrypt_totp_secret(row["totp_secret"])
+        except Exception:
+            return False, "خطا در رمزگشایی secret"
+        
+        if totp.verify_code(secret_b32, code):
+            audit("TOTP_VERIFY_OK", detail=f"user_id={user_id}")
+            return True, "معتبر"
+        
+        Security.violation(client_ip(), "totp_verify_fail")
+        return False, "کد نامعتبر است"
+
+    @classmethod
+    def use_backup_code(cls, user_id: int, code: str) -> tuple:
+        """
+        استفاده از کد پشتیبان (یک‌بار مصرف)
+        خروجی: (success, message)
+        """
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT backup_codes FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+        
+        if row is None or not row["backup_codes"]:
+            return False, "کد پشتیبانی موجود نیست"
+        
+        try:
+            hashes = json.loads(row["backup_codes"])
+        except Exception:
+            return False, "خطا در خواندن کدها"
+        
+        # پیدا کردن کد معتبر و حذف آن
+        for i, stored_hash in enumerate(hashes):
+            if cls._verify_backup_code(stored_hash, code):
+                hashes.pop(i)  # حذف (یک‌بار مصرف)
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE users SET backup_codes=? WHERE id=?",
+                        (json.dumps(hashes), user_id)
+                    )
+                audit("TOTP_BACKUP_USED", detail=f"user_id={user_id}, remaining={len(hashes)}")
+                return True, f"معتبر ({len(hashes)} کد پشتیبان باقی‌مانده)"
+        
+        Security.violation(client_ip(), "totp_backup_fail")
+        return False, "کد پشتیبان نامعتبر است"
+
+    @classmethod
+    def disable_totp(cls, user_id: int) -> tuple:
+        """غیرفعال‌سازی 2FA"""
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE users SET totp_secret=NULL, backup_codes=NULL, totp_enabled=0 WHERE id=?",
+                (user_id,)
+            )
+        audit("TOTP_DISABLED", detail=f"user_id={user_id}")
+        return True, "2FA غیرفعال شد"
+
 
 class Security:
     """لایه‌ی دفاعی درون‌حافظه‌ای با پایداری در SQLite برای بن‌ها"""
@@ -751,21 +951,25 @@ if __name__ == "__main__":
     print(f"   لاگ: {LOG_PATH}")
 
 
-def client_ip():
-    """استخراج آی‌پی واقعی کاربر.
-    
-    اولویت:
-    1. X-Client-IP (برای تست محلی و reverse proxy های ساده)
-    2. CF-Connecting-IP (Cloudflare — production)
-    3. X-Real-IP (nginx)
-    4. X-Forwarded-For (عمومی)
-    5. request.remote_addr (fallback)
-    """
-    for hdr in ("X-Client-IP", "CF-Connecting-IP", "X-Real-IP", "X-Forwarded-For"):
-        val = (request.headers.get(hdr) or "").strip()
+def client_ip() -> str:
+    """استخراج IP واقعی کاربر (تحمل نبودن request context)"""
+    try:
+        from flask import request
+    except ImportError:
+        return "-"
+
+    # دسترسی به headers خارج از request context RuntimeError می‌دهد
+    try:
+        hdrs = request.headers
+    except RuntimeError:
+        return "-"
+
+    for hdr in ("CF-Connecting-IP", "X-Real-IP", "X-Forwarded-For"):
+        val = (hdrs.get(hdr) or "").strip()
         if val:
-            first_ip = val.split(",")[0].strip()
-            if first_ip and first_ip not in ("", "unknown", "127.0.0.1"):
-                return first_ip
-    
-    return request.remote_addr or "unknown"
+            return val.split(",")[0].strip()
+
+    try:
+        return request.remote_addr or "-"
+    except RuntimeError:
+        return "-"

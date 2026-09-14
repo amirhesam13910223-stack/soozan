@@ -42,6 +42,10 @@ def login():
             audit("LOGIN_2FA_PENDING", ip, f"user={username}")
             return redirect("/login/totp")
         
+        # Session regeneration برای جلوگیری از Session Fixation
+        session.clear()
+        session.modified = True  # اجبار Flask به ارسال Set-Cookie جدید
+        session.permanent = True
         session["user_id"] = user_id
         audit("LOGIN_OK", ip, f"user={username}")
         return redirect("/dashboard")

@@ -948,12 +948,26 @@ def _migrate_users_2fa(conn):
     conn.commit()
 
 
+def _ensure_reports_table(conn):
+    """ساخت جدول گزارش‌های محتوا (تیک‌داون)"""
+    conn.execute("""CREATE TABLE IF NOT EXISTS reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uid TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        contact TEXT,
+        status TEXT DEFAULT 'open',
+        created_at TEXT DEFAULT (datetime('now'))
+    )""")
+    conn.commit()
+
+
 def bootstrap():
     """راه‌اندازی اولیه هسته"""
     init_db()
     # Migration خودکار ستون‌های 2FA
     with get_db() as _c:
         _migrate_users_2fa(_c)
+        _ensure_reports_table(_c)
 
     _ = MasterKeyManager.instance()  # تولید/بارگذاری کلید ارشد
     audit("CORE_BOOTSTRAPPED")

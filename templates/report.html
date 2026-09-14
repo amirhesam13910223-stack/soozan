@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070b14">
+<meta name="referrer" content="no-referrer">
+<title>گزارش محتوا — سوزان</title>
+<style nonce="{{ nonce }}">
+@font-face{font-family:Vazirmatn;font-weight:400;src:url("/assets/fonts/Vazirmatn-Regular.woff2") format("woff2");font-display:swap}
+@font-face{font-family:Vazirmatn;font-weight:700;src:url("/assets/fonts/Vazirmatn-Bold.woff2") format("woff2");font-display:swap}
+:root{--bg:#070b14;--card:#0f1730cc;--line:#1d2a4d;--solid:#0f1730;--text:#eef2ff;--dim:#9aa7cf;--mute:#5f6c93;--acc:#ff6b35;--acc2:#ffa257;--ok:#34d399;--bad:#fb7185}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Vazirmatn,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;max-width:460px;width:100%;backdrop-filter:blur(12px)}
+h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:8px}
+.sub{color:var(--dim);font-size:13px;text-align:center;margin-bottom:24px}
+label{display:block;font-size:13px;color:var(--dim);margin-bottom:6px}
+input,select,textarea{width:100%;padding:12px 14px;background:var(--solid);border:1px solid var(--line);border-radius:12px;color:var(--text);font-family:inherit;font-size:14px;margin-bottom:16px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+textarea{min-height:90px;resize:vertical}
+.btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer}
+.error{background:#fb718520;border:1px solid var(--bad);border-radius:12px;padding:12px;color:var(--bad);font-size:13px;margin-bottom:16px;text-align:center}
+.success{background:#34d39920;border:1px solid var(--ok);border-radius:12px;padding:16px;color:var(--ok);font-size:14px;text-align:center}
+footer{text-align:center;color:var(--mute);font-size:11px;margin-top:20px}
+footer a{color:var(--dim);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📨 گزارش محتوا</h1>
+  <p class="sub">گزارش شما محرمانه است و حداکثر طی ۴۸ ساعت بررسی می‌شود</p>
+
+  {% if ok %}
+    <div class="success">
+      ✅ گزارش شما ثبت شد.<br>
+      شناسه پیگیری ذخیره شد؛ در صورت ثبت ایمیل، نتیجه اطلاع‌رسانی می‌شود.
+    </div>
+  {% else %}
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="POST">
+      <label for="uid">شناسه فایل (UID) یا لینک مشاهده</label>
+      <input id="uid" name="uid" required placeholder="مثلاً: 390bdcabb7ea...">
+
+      <label for="reason">دلیل گزارش</label>
+      <select id="reason" name="reason" required>
+        <option value="">انتخاب کنید…</option>
+        <option>محتوای مجرمانه یا غیرقانونی</option>
+        <option>بدافزار یا ابزار نفوذ</option>
+        <option>نقض حق تکثیر</option>
+        <option>افشای داده شخصی (دوکسینگ)</option>
+        <option>آزار، تهدید یا کلاهبرداری</option>
+        <option>سایر</option>
+      </select>
+
+      <label for="contact">ایمیل تماس (اختیاری)</label>
+      <input id="contact" name="contact" type="email" placeholder="you@example.com">
+
+      <button class="btn" type="submit">ثبت گزارش</button>
+    </form>
+  {% endif %}
+
+  <footer><a href="/content-policy">سیاست محتوا</a> · <a href="/">سوزان</a></footer>
+</div>
+</body>
+</html>

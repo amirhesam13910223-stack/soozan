@@ -59,6 +59,48 @@ def assets(path):
 
 
 # ── سلامت سرور ──
+@app.route("/content-policy")
+def content_policy():
+    """سیاست محتوا و تیک‌داون (عمومی)"""
+    from flask import render_template
+    import secrets
+    return render_template("content.html", nonce=secrets.token_urlsafe(24))
+
+
+@app.route("/report", methods=["GET", "POST"])
+def report():
+    """فرم گزارش محتوا (عمومی، rate-limited)"""
+    from flask import render_template, request
+    from core import Security, get_db, audit, client_ip
+    import secrets
+    nonce = secrets.token_urlsafe(24)
+
+    if request.method == "POST":
+        ip = client_ip()
+        if not Security.rate_check(ip, "report"):
+            return render_template("report.html", nonce=nonce,
+                                   error="تعداد گزارش‌ها بیش از حد است؛ بعداً تلاش کنید.")
+        uid = (request.form.get("uid") or "").strip()
+        reason = (request.form.get("reason") or "").strip()
+        contact = (request.form.get("contact") or "").strip()
+
+        if not uid or not reason:
+            return render_template("report.html", nonce=nonce,
+                                   error="شناسه فایل و دلیل گزارش الزامی است.")
+
+        with get_db() as conn:
+            exists = conn.execute("SELECT COUNT(*) FROM files WHERE uid=?", (uid,)).fetchone()[0]
+            if not exists:
+                return render_template("report.html", nonce=nonce,
+                                       error="فایلی با این شناسه یافت نشد (احتمالاً امحا شده).")
+            conn.execute("INSERT INTO reports(uid, reason, contact) VALUES (?,?,?)",
+                         (uid, reason, contact))
+        audit("CONTENT_REPORT", ip, f"uid={uid[:12]}")
+        return render_template("report.html", nonce=nonce, ok=True)
+
+    return render_template("report.html", nonce=nonce)
+
+
 @app.route("/terms")
 def terms():
     """صفحه شرایط استفاده (عمومی)"""

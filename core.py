@@ -113,7 +113,7 @@ class MasterKeyManager:
     def _load_or_create(self) -> bytes:
         if MASTER_KEY.exists():
             with open(MASTER_KEY, "rb") as f:
-                key = f.read().strip()
+                key = f.read()  # بدون strip: بایت whitespace بخشی از کلید خام است
             if len(key) != 32:
                 raise RuntimeError("کلید ارشد معتبر نیست")
             return key

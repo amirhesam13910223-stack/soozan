@@ -49,7 +49,7 @@ check(r.status_code == 302, "ویزارد بدون ورود ریدایرکت م�
 
 # ─── تست ۳: ثبت‌نام و ورود ───
 section("۳. ثبت‌نام و ورود")
-un = "phase2_" + secrets.token_hex(3)
+un = "phase2_80e122" + secrets.token_hex(3)
 pw = "Test1234!Xyz"
 
 s = requests.Session()

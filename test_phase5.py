@@ -35,7 +35,7 @@ check(fake_ip in log, "آی‌پی هدر CF در لاگ امنیتی ثبت ش�
 # ─── ۳. جریان کامل کاربر ───
 section("۳. جریان کامل سازنده→بیننده")
 s = requests.Session()
-un = "e2e_" + secrets.token_hex(3)
+un = "e2e_80e122" + secrets.token_hex(3)
 s.post(LOCAL + "/register", data={"username": un, "password": "Test1234!"})
 check(s.post(LOCAL + "/login", data={"username": un, "password": "Test1234!"},
              allow_redirects=False).status_code == 302, "ورود سازنده")

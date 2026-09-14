@@ -117,7 +117,7 @@ check(expected.issubset(set(tables)), f"همه جداول اصلی موجودن�
 # ───────────────────────────────────────────────────
 section("۵. احراز هویت (scrypt)")
 # ───────────────────────────────────────────────────
-test_user = "testuser_" + secrets.token_hex(3)
+test_user = "testuser80e122" + secrets.token_hex(3)
 test_pass = "SecurePass!123"
 
 ok_r, msg = Auth.register(test_user, test_pass)

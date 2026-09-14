@@ -185,7 +185,7 @@ def test_3_auth():
     section("۳. احراز هویت")
     
     s = requests.Session()
-    username = "testuser_full_" + str(int(time.time()))
+    username = "testuser80e122" + str(int(time.time()))
     password = "TestPassword123!"
     
     # ثبت‌نام
@@ -204,9 +204,10 @@ def test_3_auth():
     else:
         bad(f"ورود خطا: {r.status_code}")
     
-    # ورود با رمز اشتباه
-    r = s.post(BASE + "/login", data={"username": username, "password": "wrongpass"},
-               allow_redirects=False)
+    # ورود با رمز اشتباه (با session تازه تا session قبلی تداخل نکند)
+    s_wrong = requests.Session()
+    r = s_wrong.post(BASE + "/login", data={"username": username, "password": "wrongpass"},
+                     allow_redirects=False)
     if r.status_code != 302:
         ok("ورود با رمز اشتباه رد شد")
     else:

@@ -1,4 +1,27 @@
+
+# ═══ فایل‌های build اندروید ═══
+# ═══ فایل‌های تست ═══
 # ═══ فایل‌های حساس امنیتی ═══
+# ═══ فایل‌های موقت ═══
+# ═══ کلیدهای امضا و باینری‌های APK ═══
+*.apk
+*.class
+*.dex
+*.idsig
+*.jks
+*.keystore
+*.pyc
+*.pyo
+*.tmp
+.env
+/tmp/
+__pycache__/
+apkbuild/android.jar
+apkbuild/bin/
+apkbuild/obj/
+apkbuild/soozan.keystore
+backups/
+data/
 data/.master.key
 data/burn.db
 data/burn.db-journal
@@ -6,31 +29,7 @@ data/burn.db-shm
 data/burn.db-wal
 data/files/
 data/soozan.log
-
-# ═══ فایل‌های موقت ═══
-server.log
-run.pid
 nohup.out
-__pycache__/
-*.pyc
-*.pyo
+run.pid
+server.log
 venv/
-.env
-
-# ═══ فایل‌های تست ═══
-/tmp/
-*.tmp
-
-# ═══ فایل‌های build اندروید ═══
-apkbuild/bin/
-apkbuild/obj/
-apkbuild/android.jar
-*.apk
-*.class
-*.dex
-
-# ═══ کلیدهای امضا و باینری‌های APK ═══
-apkbuild/soozan.keystore
-*.keystore
-*.jks
-*.idsig

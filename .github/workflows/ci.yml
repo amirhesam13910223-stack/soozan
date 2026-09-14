@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -17,17 +18,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flask cryptography jdatetime
-
-      - name: Syntax check (compileall)
+          pip install flask cryptography jdatetime requests Pillow waitress
+      
+      - name: Syntax check
         run: python -m compileall -q .
 
-      - name: Run all tests
+      - name: Run comprehensive test suite
+        env:
+          SOOZAN_DEV_MODE: "1"
         run: |
-          fail=0
-          for f in test_*.py; do
-            [ -e "$f" ] || continue
-            echo "=== $f ==="
-            python "$f" || fail=1
-          done
-          exit $fail
+          chmod +x run.sh test_sozan_v1.py 2>/dev/null || true
+          python3 test_sozan_v1.py

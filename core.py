@@ -1,3 +1,4 @@
+import re
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -38,6 +39,7 @@ FILES_DIR  = DATA_DIR / "files"
 DB_PATH    = DATA_DIR / "burn.db"
 MASTER_KEY = DATA_DIR / ".master.key"
 LOG_PATH   = DATA_DIR / "soozan.log"
+LOG_RETENTION_DAYS = 180  # الزام قانونی ایران (حداقل ۶ ماه)
 
 # اطمینان از وجود پوشه‌ها با دسترسی امن
 DATA_DIR.mkdir(mode=0o700, exist_ok=True)
@@ -961,6 +963,58 @@ def _ensure_reports_table(conn):
     conn.commit()
 
 
+def purge_old_logs(retention_days: int = LOG_RETENTION_DAYS) -> int:
+    """حذف فایل‌های لاگ قدیمی‌تر از retention_days (الزام قانونی نگهداری ۶ ماهه).
+    برای هر فایل soozan.log*، timestamp آخرین خط را می‌خواند.
+    برمی‌گرداند: تعداد فایل‌های حذف‌شده.
+    """
+    from datetime import datetime, timedelta
+    cutoff = datetime.now() - timedelta(days=retention_days)
+    removed = 0
+    ts_pat = re.compile(r"^\[(\d{4}-\d{2}-\d{2}) ")
+
+    candidates = [LOG_PATH] + list(DATA_DIR.glob("soozan.log.*"))
+    for log_file in candidates:
+        if not log_file.exists():
+            continue
+        try:
+            # خواندن از انتهای فایل برای یافتن timestamp آخرین رویداد
+            last_ts = None
+            with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                # اگر فایل کوچک است، همه‌اش را بخوان
+                content = f.read()
+                for line in reversed(content.split("\n")):
+                    m = ts_pat.match(line)
+                    if m:
+                        try:
+                            last_ts = datetime.strptime(m.group(1), "%Y-%m-%d")
+                            break
+                        except ValueError:
+                            continue
+
+            if last_ts is None:
+                # فایل خالی یا بدون timestamp معتبر — حذف امن است
+                log_file.unlink(missing_ok=True)
+                removed += 1
+                continue
+
+            if last_ts < cutoff:
+                # امن‌تر از unlink: بازنویسی با صفر سپس حذف (shred-like)
+                try:
+                    with open(log_file, "wb") as f:
+                        f.write(b"\x00" * 64)
+                    log_file.unlink(missing_ok=True)
+                    removed += 1
+                except OSError:
+                    pass
+        except OSError:
+            continue
+
+    if removed > 0:
+        audit("LOG_PURGE", detail=f"removed={removed}, retention={retention_days}d")
+    return removed
+
+
 def bootstrap():
     """راه‌اندازی اولیه هسته"""
     init_db()
@@ -968,6 +1022,10 @@ def bootstrap():
     with get_db() as _c:
         _migrate_users_2fa(_c)
         _ensure_reports_table(_c)
+
+    # پاک‌سازی لاگ‌های قدیمی‌تر از ۱۸۰ روز (الزام قانونی)
+    purge_old_logs()
+
 
     _ = MasterKeyManager.instance()  # تولید/بارگذاری کلید ارشد
     audit("CORE_BOOTSTRAPPED")

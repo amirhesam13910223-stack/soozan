@@ -67,6 +67,36 @@ def _parse_settings(form) -> dict:
     if ttl < 0 or ttl > 365:
         ttl = 7
     settings["global_ttl_days"] = ttl
+
+    # ── فاز ۳: انتخاب‌گر نابودی دلخواه ──
+    burn_mode = (form.get("burn_mode") or "both").strip()
+    if burn_mode not in ("views", "time", "both", "custom"):
+        burn_mode = "both"
+    unit_map = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
+
+    if burn_mode == "custom":
+        cmv = form.get("custom_max_views")
+        ctl = form.get("custom_ttl")
+        cun = form.get("custom_ttl_unit") or "day"
+        if cmv not in (None, ""):
+            mv = max(0, int(cmv))
+        if ctl not in (None, ""):
+            settings["custom_ttl_sec"] = max(60, int(ctl) * unit_map.get(cun, 86400))
+            ttl = 0
+        else:
+            settings.pop("custom_ttl_sec", None)
+    elif burn_mode == "views":
+        ttl = 0
+        settings.pop("custom_ttl_sec", None)
+    elif burn_mode == "time":
+        mv = 0
+        settings.pop("custom_ttl_sec", None)
+    else:  # both
+        settings.pop("custom_ttl_sec", None)
+
+    settings["burn_mode"] = burn_mode
+    settings["max_views"] = mv
+    settings["global_ttl_days"] = ttl
     settings["global_deadline"] = None
 
     # رمز (هش شده با scrypt — plaintext ذخیره نمی‌شود)
@@ -156,8 +186,12 @@ def api_upload():
 
     # محاسبه زمان انقضا
     now = time.time()
-    ttl_days = settings["global_ttl_days"]
-    expires = now + (ttl_days * 86400) if ttl_days > 0 else None
+    ttl_days = settings.get("global_ttl_days", 7)
+    custom_sec = settings.get("custom_ttl_sec")
+    if custom_sec:
+        expires = now + custom_sec
+    else:
+        expires = now + (ttl_days * 86400) if ttl_days > 0 else None
 
     # ذخیره در دیتابیس
     with get_db() as conn:

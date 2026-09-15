@@ -92,6 +92,48 @@
       <div id="chips" style="margin-bottom:12px"></div>
 
       <div class="sec">
+        <h3>🔥 نابودی دلخواه</h3>
+        <div class="burn-selector" id="burnSelector">
+          <label class="burn-option selected" data-mode="both">
+            <input type="radio" name="burnmode" checked>
+            <span class="burn-option-icon">🔥</span>
+            <span class="burn-option-label">ترکیبی</span>
+            <span class="burn-option-desc">مشاهده یا زمان، هر کدام زودتر</span>
+          </label>
+          <label class="burn-option" data-mode="views">
+            <input type="radio" name="burnmode">
+            <span class="burn-option-icon">👁</span>
+            <span class="burn-option-label">فقط مشاهده</span>
+            <span class="burn-option-desc">بعد از N بار نمایش</span>
+          </label>
+          <label class="burn-option" data-mode="time">
+            <input type="radio" name="burnmode">
+            <span class="burn-option-icon">⏳</span>
+            <span class="burn-option-label">فقط زمان</span>
+            <span class="burn-option-desc">بعد از گذشت مدت</span>
+          </label>
+          <label class="burn-option custom" data-mode="custom">
+            <input type="radio" name="burnmode">
+            <span class="burn-option-icon">🎛</span>
+            <span class="burn-option-label">کاملاً دلخواه</span>
+            <span class="burn-option-desc">دقیقه/ساعت/هفته/ماه + تعداد مشاهده</span>
+          </label>
+        </div>
+        <div id="burnCustomRow" class="burn-custom-row hidden">
+          <input class="input" type="number" id="cmTtl" value="1" min="1" title="مدت">
+          <select id="cmUnit">
+            <option value="minute">دقیقه</option>
+            <option value="hour">ساعت</option>
+            <option value="day" selected>روز</option>
+            <option value="week">هفته</option>
+            <option value="month">ماه</option>
+          </select>
+          <input class="input" type="number" id="cmViews" value="0" min="0" title="مشاهده (0 = بی‌حد)">
+        </div>
+        <div id="burnPreview" style="margin-top:12px;padding:10px 14px;background:var(--acc-soft);border:1px solid var(--acc);border-radius:var(--rs);font-size:13px;color:var(--text)"></div>
+      </div>
+
+      <div class="sec">
         <h3>🔓 دسترسی</h3>
         <div class="grid2">
           <div>
@@ -309,6 +351,12 @@ $("btnNext2").addEventListener("click",()=>{
 /* ── مرحله ۳ ── */
 async function doUpload(){
   const fd=new FormData();
+      fd.append("burn_mode", window.__burnMode||"both");
+      if((window.__burnMode||"both")==="custom"){
+        fd.append("custom_max_views", $("cmViews").value||"0");
+        fd.append("custom_ttl", $("cmTtl").value||"1");
+        fd.append("custom_ttl_unit", $("cmUnit").value||"day");
+      }
   fd.append("file",selectedFile);
   fd.append("max_views",$("maxViews").value);
   fd.append("ip_once",$("ipOnce").checked?"1":"0");
@@ -365,5 +413,41 @@ $("btnCopyAdmin").addEventListener("click",async()=>{
 });
 $("btnNew").addEventListener("click",()=>location.reload());
 $("btnGoDash").addEventListener("click",()=>location.href="/dashboard");
+
+// ── انتخاب‌گر نابودی دلخواه (فاز ۳) ──
+window.__burnMode = "both";
+(function(){
+  const bopts = document.querySelectorAll("#burnSelector .burn-option");
+  function burnPreview(){
+    const m = window.__burnMode;
+    const mv = parseInt($("maxViews").value||"1",10);
+    const td = parseInt($("ttlDays").value||"7",10);
+    const vTxt = mv===0 ? "نمایش نامحدود" : mv+" بار نمایش";
+    const tTxt = td===0 ? "بدون انقضای زمانی" : td+" روز";
+    let txt = "";
+    if(m==="views") txt = "🔥 نابودی بعد از "+vTxt;
+    else if(m==="time") txt = "🔥 نابودی بعد از "+tTxt;
+    else if(m==="both") txt = "🔥 نابودی بعد از "+vTxt+" یا "+tTxt+" — هر کدام زودتر برسد";
+    else {
+      const cv = parseInt($("cmViews").value||"0",10);
+      const ct = parseInt($("cmTtl").value||"1",10);
+      const un = $("cmUnit").selectedOptions[0].textContent;
+      txt = "🔥 نابودی بعد از "+ct+" "+un+(cv>0 ? " یا "+cv+" بار نمایش" : "")+" — هر کدام زودتر برسد";
+    }
+    $("burnPreview").textContent = txt;
+  }
+  bopts.forEach(o=>o.addEventListener("click",()=>{
+    bopts.forEach(x=>x.classList.remove("selected"));
+    o.classList.add("selected");
+    window.__burnMode = o.dataset.mode;
+    $("burnCustomRow").classList.toggle("hidden", window.__burnMode!=="custom");
+    burnPreview();
+  }));
+  ["maxViews","ttlDays","cmTtl","cmUnit","cmViews"].forEach(id=>{
+    const el = $(id);
+    if(el){ el.addEventListener("change", burnPreview); el.addEventListener("input", burnPreview); }
+  });
+  burnPreview();
+})();
 </script>
 {% endblock %}

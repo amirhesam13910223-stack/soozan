@@ -1015,6 +1015,48 @@ def purge_old_logs(retention_days: int = LOG_RETENTION_DAYS) -> int:
     return removed
 
 
+def _migrate_burn_settings(conn):
+    """Migration: فایل‌های قدیمی که burn_mode در settings ندارند،
+    با پیش‌فرض 'both' (views + time) پر شوند."""
+    rows = conn.execute("SELECT id, settings, views_count, expires_at, created_at FROM files").fetchall()
+    updated = 0
+    for r in rows:
+        try:
+            cfg = json.loads(r["settings"] or "{}")
+        except Exception:
+            cfg = {}
+        if "burn_mode" not in cfg:
+            # حدس از داده فعلی
+            mv = cfg.get("max_views")
+            ea = r["expires_at"]
+            if mv is not None and ea is not None:
+                cfg["burn_mode"] = "both"
+                cfg["max_views"] = mv
+                # تخمین ttl از expires_at - created_at
+                try:
+                    ttl_days = max(1, int((ea - r["created_at"]) / 86400))
+                    cfg["ttl_days"] = ttl_days
+                except Exception:
+                    cfg["ttl_days"] = 7
+            elif mv is not None:
+                cfg["burn_mode"] = "views"
+                cfg["max_views"] = mv
+            elif ea is not None:
+                cfg["burn_mode"] = "time"
+                try:
+                    cfg["ttl_days"] = max(1, int((ea - r["created_at"]) / 86400))
+                except Exception:
+                    cfg["ttl_days"] = 7
+            else:
+                cfg["burn_mode"] = "views"
+                cfg["max_views"] = 1
+            conn.execute("UPDATE files SET settings=? WHERE id=?",
+                         (json.dumps(cfg, ensure_ascii=False), r["id"]))
+            updated += 1
+    if updated:
+        conn.commit()
+
+
 def bootstrap():
     """راه‌اندازی اولیه هسته"""
     init_db()
@@ -1022,6 +1064,7 @@ def bootstrap():
     with get_db() as _c:
         _migrate_users_2fa(_c)
         _ensure_reports_table(_c)
+        _migrate_burn_settings(_c)
 
     # پاک‌سازی لاگ‌های قدیمی‌تر از ۱۸۰ روز (الزام قانونی)
     purge_old_logs()

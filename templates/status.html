@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070b14">
+<meta name="referrer" content="no-referrer">
+<title>وضعیت سرویس — سوزان</title>
+<style nonce="{{ nonce }}">
+@font-face{font-family:Vazirmatn;font-weight:400;src:url("/assets/fonts/Vazirmatn-Regular.woff2") format("woff2");font-display:swap}
+@font-face{font-family:Vazirmatn;font-weight:700;src:url("/assets/fonts/Vazirmatn-Bold.woff2") format("woff2");font-display:swap}
+:root{--bg:#070b14;--card:#0f1730cc;--line:#1d2a4d;--text:#eef2ff;--dim:#9aa7cf;--mute:#5f6c93;--ok:#34d399;--warn:#fbbf24;--bad:#fb7185}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Vazirmatn,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;max-width:440px;width:100%;backdrop-filter:blur(12px)}
+h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:4px}
+.ver{text-align:center;color:var(--mute);font-size:12px;margin-bottom:24px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:14px 4px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.label{color:var(--dim);font-size:14px}
+.val{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%}
+.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.warn{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.bad{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+footer{text-align:center;color:var(--mute);font-size:11px;margin-top:20px}
+footer a{color:var(--dim);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔥 وضعیت سرویس سوزان</h1>
+  <p class="ver">نسخه {{ version }} · فاز {{ phase }}</p>
+
+  <div class="row">
+    <span class="label">پایگاه داده</span>
+    <span class="val"><span class="dot {{ db_cls }}"></span>{{ db_txt }}</span>
+  </div>
+  <div class="row">
+    <span class="label">فضای ذخیره‌سازی</span>
+    <span class="val"><span class="dot {{ disk_cls }}"></span>{{ disk_txt }}</span>
+  </div>
+  <div class="row">
+    <span class="label">آخرین بک‌آپ</span>
+    <span class="val"><span class="dot {{ bak_cls }}"></span>{{ bak_txt }}</span>
+  </div>
+  <div class="row">
+    <span class="label">زمان کارکرد پیوسته</span>
+    <span class="val">{{ uptime_txt }}</span>
+  </div>
+  <div class="row">
+    <span class="label">نگهداری لاگ</span>
+    <span class="val">{{ retention }} روز</span>
+  </div>
+
+  <footer><a href="/">سوزان</a> · <a href="/privacy">حریم خصوصی</a></footer>
+</div>
+</body>
+</html>

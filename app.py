@@ -59,6 +59,74 @@ def assets(path):
 
 
 # ── سلامت سرور ──
+SOOZAN_VERSION = "1.1.0-phase2"
+SOOZAN_PHASE = "۲ (زیرساخت)"
+SOOZAN_BOOT = __import__("time").time()
+
+
+@app.route("/status")
+def status():
+    """صفحه وضعیت عمومی — بدون داده حساس"""
+    from flask import render_template
+    import secrets, shutil, time
+    from pathlib import Path as _P
+    from core import DATA_DIR, LOG_RETENTION_DAYS, get_db
+
+    # ۱) پایگاه داده
+    try:
+        with get_db() as conn:
+            conn.execute("SELECT 1").fetchone()
+        db_cls, db_txt = "ok", "سالم"
+    except Exception:
+        db_cls, db_txt = "bad", "خطا"
+
+    # ۲) دیسک
+    try:
+        du = shutil.disk_usage(str(DATA_DIR))
+        pct = du.used / du.total * 100
+        if pct < 70:
+            disk_cls, disk_txt = "ok", f"{pct:.0f}٪ استفاده"
+        elif pct < 85:
+            disk_cls, disk_txt = "warn", f"{pct:.0f}٪ استفاده"
+        else:
+            disk_cls, disk_txt = "bad", f"{pct:.0f}٪ استفاده — بحرانی"
+    except Exception:
+        disk_cls, disk_txt, pct = "warn", "نامشخص", -1
+
+    # ۳) آخرین بک‌آپ
+    try:
+        backups = sorted(_P("backups").glob("soozan_backup_*.tar.gz"),
+                         key=lambda f: f.stat().st_mtime, reverse=True)
+        if backups:
+            age_h = (time.time() - backups[0].stat().st_mtime) / 3600
+            if age_h < 36:
+                bak_cls, bak_txt = "ok", f"{age_h:.0f} ساعت پیش"
+            elif age_h < 72:
+                bak_cls, bak_txt = "warn", f"{age_h:.0f} ساعت پیش"
+            else:
+                bak_cls, bak_txt = "bad", f"{age_h:.0f} ساعت پیش — قدیمی"
+        else:
+            bak_cls, bak_txt = "bad", "وجود ندارد"
+    except Exception:
+        bak_cls, bak_txt = "warn", "نامشخص"
+
+    # ۴) uptime
+    up = int(time.time() - SOOZAN_BOOT)
+    d, rem = divmod(up, 86400)
+    h, rem = divmod(rem, 3600)
+    m = rem // 60
+    uptime_txt = f"{d} روز و {h} ساعت و {m} دقیقه" if d else f"{h} ساعت و {m} دقیقه"
+
+    return render_template("status.html",
+                           nonce=secrets.token_urlsafe(24),
+                           version=SOOZAN_VERSION, phase=SOOZAN_PHASE,
+                           db_cls=db_cls, db_txt=db_txt,
+                           disk_cls=disk_cls, disk_txt=disk_txt,
+                           bak_cls=bak_cls, bak_txt=bak_txt,
+                           uptime_txt=uptime_txt,
+                           retention=LOG_RETENTION_DAYS)
+
+
 @app.route("/content-policy")
 def content_policy():
     """سیاست محتوا و تیک‌داون (عمومی)"""

@@ -152,6 +152,13 @@ def view_page(uid):
             "seek": st.get("audio_seek", True), "copy": st.get("text_copy", False),
         },
         "wm": st.get("watermark", ""),
+        "burn": {
+            "mode": st.get("burn_mode", "both"),
+            "max_views": st.get("max_views") or 0,
+            "views_left": max(0, (st.get("max_views") or 0) - (row["views_count"] or 0)) if (row and st.get("max_views")) else None,
+            "expires_in": int(row["expires_at"] - now) if (row and row["expires_at"]) else None,
+            "total_ttl": int(row["expires_at"] - (row["first_viewed"] or row["created_at"])) if (row and row["expires_at"]) else None,
+        } if row else None,
     }
     boot_json = json.dumps(boot, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     audit("VIEW_RESOLVE", ip, f"state={boot_state} known={row is not None}")

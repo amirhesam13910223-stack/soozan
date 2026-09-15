@@ -234,6 +234,19 @@ if __name__ == "__main__":
     print("=" * 56)
     try:
         from waitress import serve
-        serve(app, host="0.0.0.0", port=PORT, threads=8)
+        serve(
+            app,
+            host="0.0.0.0",
+            port=PORT,
+            threads=8,                    # = تعداد هسته CPU
+            connection_limit=100,         # حداکثر اتصال هم‌زمان
+            channel_timeout=120,          # 2 دقیقه timeout اتصال idle
+            cleanup_interval=30,          # پاک‌سازی هر 30 ثانیه
+            recv_bytes=16384,             # بافر دریافت (16KB)
+            send_bytes=18000,             # بافر ارسال
+            max_request_header_size=16384,
+            max_request_body_size=52428800,  # 50MB (مطابق محدودیت آپلود)
+            expose_tracebacks=False,      # امنیتی: stack trace در production نشت نکند
+        )
     except ImportError:
         app.run(host="0.0.0.0", port=PORT, threaded=True, debug=False)

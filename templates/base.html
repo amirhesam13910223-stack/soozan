@@ -19,6 +19,9 @@
 --warn:#fbbf24;--info:#60a5fa;
 --r:20px;--rs:12px;--shadow:0 12px 44px #00000073;
 --mono:ui-monospace,"SF Mono",Consolas,monospace;
+
+--transition:transform .15s, box-shadow .2s, background .2s, border-color .2s, color .2s;
+--radius-xs:6px;--radius-sm:10px;--radius-md:var(--rs);--radius-lg:var(--r);--radius-xl:28px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{background:var(--bg)}
@@ -153,6 +156,100 @@ select option { background: #0b1226 !important; color: #eef2ff !important; }
 [class*="toolbar"] button svg [fill]:not([fill="none"]),
 [class*="vbar"] button svg [fill]:not([fill="none"]),
 [class*="bar"] button svg [fill]:not([fill="none"]) { fill: currentColor !important; }
+
+/* ═══════ phase-3 design extensions ═══════ */
+
+/* --- Badge (برچسب وضعیت) --- */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.badge-ok{background:var(--ok-soft);color:var(--ok)}
+.badge-bad{background:var(--bad-soft);color:var(--bad)}
+.badge-warn{background:#fbbf2424;color:var(--warn)}
+.badge-info{background:#60a5fa24;color:var(--info)}
+.badge-dim{background:#ffffff0a;color:var(--dim)}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse-dot 2s infinite}
+.badge-dim::before,.badge-info::before{animation:none}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* --- Toast (نوتیفیکیشن) --- */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120%);background:var(--solid);border:1px solid var(--line);border-radius:var(--rs);padding:12px 20px;color:var(--text);font-size:14px;z-index:1000;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;min-width:240px;max-width:90vw;opacity:0;transition:transform .3s, opacity .3s}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast-ok{border-color:var(--ok)}
+.toast-bad{border-color:var(--bad)}
+
+/* --- Modal --- */
+.modal-backdrop{position:fixed;inset:0;background:#000a;backdrop-filter:blur(8px);z-index:999;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-backdrop.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-45%) scale(.95);background:var(--solid);border:1px solid var(--line);border-radius:var(--r);padding:28px;max-width:480px;width:calc(100% - 32px);z-index:1000;opacity:0;pointer-events:none;transition:transform .25s, opacity .25s}
+.modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.modal h3{font-size:18px;margin-bottom:10px}
+.modal p{color:var(--dim);font-size:14px;line-height:1.7;margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+
+/* --- Switch (toggle) --- */
+.switch{position:relative;display:inline-block;width:44px;height:24px}
+.switch input{opacity:0;width:0;height:0}
+.switch-slider{position:absolute;inset:0;background:var(--line);border-radius:99px;cursor:pointer;transition:var(--transition)}
+.switch-slider::before{content:"";position:absolute;top:3px;inset-inline-start:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:var(--transition)}
+.switch input:checked + .switch-slider{background:linear-gradient(135deg,var(--acc),var(--acc2))}
+.switch input:checked + .switch-slider::before{transform:translateX(20px)}
+[dir="rtl"] .switch input:checked + .switch-slider::before{transform:translateX(-20px)}
+
+/* --- Tabs --- */
+.tabs{display:flex;gap:4px;padding:4px;background:#ffffff06;border:1px solid var(--line);border-radius:var(--rs);margin-bottom:20px;overflow-x:auto}
+.tab-btn{flex:1;padding:10px 14px;background:transparent;border:0;border-radius:8px;color:var(--dim);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:var(--transition);white-space:nowrap}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{background:var(--solid);color:var(--text);box-shadow:0 2px 8px #0004}
+.tab-panel{display:none;animation:fadeIn .3s}
+.tab-panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* --- Burn Selector (انتخاب‌گر نابودی دلخواه) --- */
+.burn-selector{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;margin-top:10px}
+.burn-option{position:relative;background:var(--solid);border:2px solid var(--line);border-radius:var(--rs);padding:14px;cursor:pointer;transition:var(--transition);text-align:center}
+.burn-option:hover{border-color:var(--line2);transform:translateY(-2px)}
+.burn-option.selected{border-color:var(--acc);background:var(--acc-soft);box-shadow:0 4px 16px #ff6b3540}
+.burn-option input{position:absolute;opacity:0;pointer-events:none}
+.burn-option-icon{font-size:24px;margin-bottom:6px;display:block}
+.burn-option-label{font-weight:600;font-size:14px;display:block;color:var(--text)}
+.burn-option-desc{font-size:11.5px;color:var(--dim);margin-top:3px;display:block}
+.burn-option.custom{grid-column:1/-1}
+.burn-custom-row{display:grid;grid-template-columns:1fr 100px auto;gap:8px;margin-top:10px}
+
+/* --- Countdown Ring (حلقه شمارش معکوس viewer) --- */
+.countdown-ring{position:relative;width:120px;height:120px;margin:20px auto}
+.countdown-ring svg{transform:rotate(-90deg);width:100%;height:100%}
+.countdown-ring circle{fill:none;stroke-width:8;stroke-linecap:round}
+.countdown-ring .track{stroke:var(--line)}
+.countdown-ring .progress{stroke:var(--acc);transition:stroke-dashoffset 1s linear;filter:drop-shadow(0 0 8px var(--acc))}
+.countdown-ring .value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:var(--text);font-family:var(--mono)}
+
+/* --- Progress Bar --- */
+.progress{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin:10px 0}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:99px;transition:width .3s;box-shadow:0 0 10px var(--acc)}
+
+/* --- Keyboard (کلیدهای میانبر) --- */
+.kbd{display:inline-block;padding:2px 8px;background:var(--solid);border:1px solid var(--line2);border-radius:var(--radius-xs);font-family:var(--mono);font-size:11.5px;color:var(--dim);box-shadow:0 2px 0 var(--line)}
+
+/* --- Fire Animation (نابودی viewer) --- */
+.fire-particle{position:fixed;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle,#ffb347,#ff6b35);pointer-events:none;z-index:9999;animation:fire-rise 1.5s ease-out forwards}
+@keyframes fire-rise{
+  0%{opacity:1;transform:translate(0,0) scale(1)}
+  100%{opacity:0;transform:translate(var(--dx,0),-150px) scale(0)}
+}
+.burn-flash{animation:burn-flash .6s ease-out}
+@keyframes burn-flash{
+  0%{filter:brightness(1)}
+  30%{filter:brightness(2) saturate(1.5)}
+  100%{filter:brightness(1) saturate(1)}
+}
+
+/* --- Responsive tweaks --- */
+@media(max-width:640px){
+  .modal{padding:22px}
+  .burn-selector{grid-template-columns:1fr 1fr}
+  .burn-option.custom{grid-column:1/-1}
+  .toast{bottom:16px;min-width:200px}
+}
 </style>
 {% block head %}{% endblock %}
 </head>

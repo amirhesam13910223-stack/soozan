@@ -74,5 +74,19 @@ echo "📦 فایل: $BACKUP_DIR/$BACKUP_NAME"
 echo "📏 اندازه: $SIZE"
 echo "🔐 checksum: $BACKUP_DIR/${BACKUP_NAME}.sha256"
 echo ""
+
+# ═══ ۶) سیاست نگهداری: فقط ۱۴ نسخه اخیر ═══
+BACKUP_KEEP=14
+cd "$BACKUP_DIR"
+DELETED=0
+for old in $(ls -1t soozan_backup_*.tar.gz 2>/dev/null | tail -n +$((BACKUP_KEEP + 1))); do
+    rm -f "$old" "${old}.sha256"
+    DELETED=$((DELETED + 1))
+done
+cd ..
+if [ $DELETED -gt 0 ]; then
+    echo "🗑  $DELETED بک‌آپ قدیمی حذف شد (سیاست نگهداری: $BACKUP_KEEP نسخه)"
+fi
+
 echo "💡 بازیابی:"
 echo "   bash restore.sh $BACKUP_DIR/$BACKUP_NAME"

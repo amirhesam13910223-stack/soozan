@@ -204,15 +204,15 @@ select option { background: #0b1226 !important; color: #eef2ff !important; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
 /* --- Burn Selector (انتخاب‌گر نابودی دلخواه) --- */
-.burn-selector{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;margin-top:10px}
-.burn-option{position:relative;background:var(--solid);border:2px solid var(--line);border-radius:var(--rs);padding:14px;cursor:pointer;transition:var(--transition);text-align:center}
+.burn-selector{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+@media(min-width:760px){.burn-selector{grid-template-columns:repeat(4,1fr)}}
+.burn-option{position:relative;background:var(--solid);border:2px solid var(--line);border-radius:var(--rs);padding:16px 12px;cursor:pointer;transition:var(--transition);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:136px}
 .burn-option:hover{border-color:var(--line2);transform:translateY(-2px)}
 .burn-option.selected{border-color:var(--acc);background:var(--acc-soft);box-shadow:0 4px 16px #ff6b3540}
 .burn-option input{position:absolute;opacity:0;pointer-events:none}
 .burn-option-icon{font-size:24px;margin-bottom:6px;display:block}
 .burn-option-label{font-weight:600;font-size:14px;display:block;color:var(--text)}
 .burn-option-desc{font-size:11.5px;color:var(--dim);margin-top:3px;display:block}
-.burn-option.custom{grid-column:1/-1}
 .burn-custom-row{display:grid;grid-template-columns:1fr 100px auto;gap:8px;margin-top:10px}
 
 /* --- Countdown Ring (حلقه شمارش معکوس viewer) --- */
@@ -247,8 +247,7 @@ select option { background: #0b1226 !important; color: #eef2ff !important; }
 @media(max-width:640px){
   .modal{padding:22px}
   .burn-selector{grid-template-columns:1fr 1fr}
-  .burn-option.custom{grid-column:1/-1}
-  .toast{bottom:16px;min-width:200px}
+    .toast{bottom:16px;min-width:200px}
 }
 </style>
 {% block head %}{% endblock %}

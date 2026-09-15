@@ -64,6 +64,28 @@ SOOZAN_PHASE = "۲ (زیرساخت)"
 SOOZAN_BOOT = __import__("time").time()
 
 
+@app.route("/api/disk-usage")
+def api_disk_usage():
+    """API عمومی برای دریافت درصد استفاده دیسک (JSON)"""
+    import shutil
+    from flask import jsonify
+    from core import DATA_DIR
+    
+    try:
+        du = shutil.disk_usage(str(DATA_DIR))
+        pct = du.used / du.total * 100
+        return jsonify({
+            "ok": True,
+            "usage_percent": round(pct, 1),
+            "used_gb": round(du.used / (1024**3), 2),
+            "total_gb": round(du.total / (1024**3), 2),
+            "free_gb": round(du.free / (1024**3), 2),
+            "status": "ok" if pct < 80 else ("warn" if pct < 90 else "critical")
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/status")
 def status():
     """صفحه وضعیت عمومی — بدون داده حساس"""

@@ -10,14 +10,30 @@
     <div class="card pad">
       {% if error %}<div class="badge badge-bad" style="display:block;margin-bottom:12px">{{ error }}</div>{% endif %}
       <form method="post" action="/register">
-        <div class="field"><label class="label" for="username">نام کاربری</label>
-          <input class="input" id="username" name="username" value="{{ username or '' }} " required autocomplete="username"></div>
-        <div class="field"><label class="label" for="password">رمز عبور</label>
-          <input class="input" type="password" id="password" name="password" required autocomplete="new-password"></div>
-        <div class="field"><label class="label" for="full_name">نام و نام خانوادگی</label>
-          <input class="input" id="full_name" name="full_name" value="{{ full_name or '' }} " required></div>
-        <div class="field"><label class="label" for="phone">شماره موبایل</label>
-          <input class="input" id="phone" name="phone" inputmode="numeric" placeholder="09xxxxxxxxx" value="{{ phone or '' }} " required style="direction:ltr;text-align:left"></div>
+        <div class="field">
+          <label class="label" for="username">نام کاربری</label>
+          <input class="input" id="username" name="username" value="{{ username or '' }}" placeholder="مثال: ali_rezaei" required autocomplete="username">
+          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">حداقل ۳ کاراکتر؛ حروف انگلیسی، عدد و _</small>
+        </div>
+        <div class="field">
+          <label class="label" for="password">رمز عبور</label>
+          <input class="input" type="password" id="password" name="password" placeholder="حداقل ۸ کاراکتر" required autocomplete="new-password">
+          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">ترکیب حرف بزرگ، کوچک و عدد = رمز قوی‌تر</small>
+        </div>
+        <div class="field">
+          <label class="label" for="password2">تکرار رمز عبور</label>
+          <input class="input" type="password" id="password2" name="password2" placeholder="همان رمز را دوباره بنویس" required autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label class="label" for="full_name">نام و نام خانوادگی</label>
+          <input class="input" id="full_name" name="full_name" value="{{ full_name or '' }}" placeholder="مثال: علی رضایی" required>
+          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">در پروفایل شما نمایش داده می‌شود</small>
+        </div>
+        <div class="field">
+          <label class="label" for="phone">شماره موبایل</label>
+          <input class="input" id="phone" name="phone" inputmode="numeric" placeholder="09123456789" value="{{ phone or '' }}" required style="direction:ltr;text-align:left">
+          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">برای کد تأیید ورود؛ با 09 شروع می‌شود</small>
+        </div>
         <button class="btn btn-acc btn-block" type="submit">ادامه ←</button>
       </form>
       <p style="text-align:center;margin-top:14px"><a href="/login" style="color:var(--acc);font-size:13px;text-decoration:none">حساب داری؟ وارد شو</a></p>

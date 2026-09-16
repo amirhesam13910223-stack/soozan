@@ -123,15 +123,24 @@ def register():
             with get_db() as c:
                 c.execute("UPDATE users SET full_name=?, phone=?, phone_verified=1 WHERE username=?",
                           (pend["full_name"], pend["phone"], pend["username"]))
+                urow = c.execute("SELECT id FROM users WHERE username=?", (pend["username"],)).fetchone()
             session.pop("reg_pending", None)
             audit("REGISTER_OK", ip, f"user={pend['username']} phone={_mask(pend['phone'])}")
-            return render(_read("auth.html"), mode="login",
-                          success="ثبت‌نام موفق. حالا وارد شوید.", username=pend["username"])
+            # ورود خودکار: ثبت‌نام که کامل شد، مستقیم به پلتفرم
+            session.clear()
+            session.permanent = True
+            session.modified = True
+            session["user_id"] = urow["id"]
+            return redirect("/dashboard")
         # مرحله ۱: دریافت اطلاعات
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
+        password2 = request.form.get("password2", "")
         full_name = request.form.get("full_name", "").strip()
         phone = request.form.get("phone", "").strip()
+        if password != password2:
+            return render(_read("auth_register.html"), error="رمز عبور و تکرار آن یکسان نیست.",
+                          username=username, full_name=full_name, phone=phone)
         if len(full_name) < 3:
             return render(_read("auth_register.html"), error="نام و نام خانوادگی را کامل وارد کنید.",
                           username=username, full_name=full_name, phone=phone)

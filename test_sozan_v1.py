@@ -113,6 +113,7 @@ def test_2_auth():
     r = s.post(f"{BASE}/register", data={
         "username": username,
         "password": password,
+        "password2": password,
         "full_name": "کاربر تستی",
         "phone": "09120000001"
     })
@@ -120,8 +121,8 @@ def test_2_auth():
     _m = _re.search(r'data-demo-code="(\d+)"', r.text)
     if _m:
         r = s.post(f"{BASE}/register", data={"step": "2", "code": _m.group(1)})
-    if r.status_code == 200 and ("موفق" in r.text or "success" in r.text.lower()):
-        ok(f"ثبت‌نام {username}")
+    if r.status_code == 302 or ("موفق" in r.text):
+        ok(f"ثبت‌نام {username} (ورود خودکار)")
     else:
         bad(f"ثبت‌نام ناموفق: {r.status_code}")
         return None, None

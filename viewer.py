@@ -30,6 +30,7 @@ def _migrate():
         for col, ddl in [
             ("entered_at",  "ALTER TABLE files ADD COLUMN entered_at REAL"),
             ("revealed_at", "ALTER TABLE files ADD COLUMN revealed_at REAL"),
+            ("view_started_at", "ALTER TABLE files ADD COLUMN view_started_at REAL"),
             ("viewer_ip",   "ALTER TABLE files ADD COLUMN viewer_ip TEXT"),
             ("wrong_pins",  "ALTER TABLE files ADD COLUMN wrong_pins INTEGER DEFAULT 0"),
         ]:
@@ -53,6 +54,13 @@ def _record_view(uid: str, file_id: int, ip: str, user_agent: str, now: float):
             "views_count=views_count+1, viewer_ip=COALESCE(viewer_ip,?) WHERE uid=?",
             (now, ip, uid)
         )
+        r2 = c.execute("SELECT settings FROM files WHERE uid=?", (uid,)).fetchone()
+        try:
+            st2 = json.loads(r2["settings"] or "{}")
+        except Exception:
+            st2 = {}
+        if st2.get("timer_mode") == "on_reveal":
+            c.execute("UPDATE files SET view_started_at=? WHERE uid=?", (now, uid))
         c.execute(
             "INSERT INTO views(file_id, ip, user_agent, viewed_at, device) VALUES (?,?,?,?,?)",
             (file_id, ip, user_agent[:200], now, device)
@@ -77,12 +85,8 @@ def viewer_state(row, now, ip):
     if row["expires_at"] and now > row["expires_at"]:
         return "expired"
     st = _settings(row)
-    if st.get("timer_mode") == "on_view" and row["entered_at"] \
-       and now > row["entered_at"] + st.get("timer_seconds", 30):
-        return "expired"
-    if st.get("timer_mode") == "on_reveal" and row["revealed_at"] \
-       and now > row["revealed_at"] + st.get("timer_seconds", 30):
-        return "expired"
+    # تایمر نمایش فقط حین نمایش قطع می‌کند (alive_state)؛
+    # مانع ورود دوباره نمی‌شود. ورود دوباره فقط با سهمیه مشاهده و انقضای جهانی محدود است.
     mv = st.get("max_views", 1)
     if mv and row["views_count"] >= mv:
         return "expired"
@@ -100,7 +104,10 @@ def alive_state(row, now):
     st = _settings(row)
     tm = st.get("timer_mode", "none")
     if tm != "none":
-        start = row["revealed_at"] if tm == "on_reveal" else row["entered_at"]
+        try:
+            start = row["view_started_at"]
+        except Exception:
+            start = None
         if start and now > start + st.get("timer_seconds", 30):
             return "gone"
     return "ok"
@@ -125,9 +132,10 @@ def view_page(uid):
     st = _settings(row) if row else {}
 
     # شروع تایمر on_view هنگام ورود آیدی
-    if state == "open" and st.get("timer_mode") == "on_view" and not row["entered_at"]:
+    if state == "open" and st.get("timer_mode") == "on_view":
         with get_db() as c:
-            c.execute("UPDATE files SET entered_at=? WHERE uid=?", (now, uid))
+            c.execute("UPDATE files SET entered_at=COALESCE(entered_at,?), view_started_at=? WHERE uid=?",
+                      (now, now, uid))
         row = _row(uid)
         st = _settings(row)
     if state == "open":
@@ -385,13 +393,8 @@ def _cleaner():
             mv = st.get("max_views", 1)
             if not dead and r["revealed_at"] and mv and r["views_count"] >= mv:
                 dead = True
-            tm = st.get("timer_mode", "none")
-            if not dead and tm == "on_view" and r["entered_at"] \
-               and now > r["entered_at"] + st.get("timer_seconds", 30):
-                dead = True
-            if not dead and tm == "on_reveal" and r["revealed_at"] \
-               and now > r["revealed_at"] + st.get("timer_seconds", 30):
-                dead = True
+            # تایمر نمایش هرگز فایل را امحا نمی‌کند؛
+            # امحا فقط با: status burned / انقضای جهانی / اتمام سهمیه مشاهده
             if dead:
                 FileCrypto.secure_delete(Path(r["file_path"]))
                 with get_db() as c:

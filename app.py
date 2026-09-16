@@ -30,9 +30,10 @@ DEV_MODE = os.environ.get("SOOZAN_DEV_MODE", "0") == "1"
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE="Strict",
+    SESSION_COOKIE_SAMESITE="Lax",  # Lax: کوکی در top-level navigation (حتی از ایتا/اپ دیگر) ارسال می‌شود
     SESSION_COOKIE_NAME="soozan_sid",
     SESSION_COOKIE_SECURE=not DEV_MODE,
+    PERMANENT_SESSION_LIFETIME=__import__("datetime").timedelta(days=30),
 )
 
 

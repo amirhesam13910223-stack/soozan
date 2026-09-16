@@ -57,7 +57,7 @@ def harden(resp):
 def _inject_nav_user():
     """تزریق username برای ناوبری"""
     from flask import session
-    uid = session.get("uid")
+    uid = session.get("user_id") or session.get("uid")
     username = None
     if uid:
         try:
@@ -109,10 +109,11 @@ def profile():
     from flask import render_template, session, redirect
     import secrets, time as _t
     from core import get_db
-    if "uid" not in session:
+    _uid = session.get("user_id") or session.get("uid")
+    if not _uid:
         return redirect("/login")
     with get_db() as conn:
-        u = conn.execute("SELECT * FROM users WHERE id=?", (session["uid"],)).fetchone()
+        u = conn.execute("SELECT * FROM users WHERE id=?", (_uid,)).fetchone()
         if not u:
             return redirect("/login")
         n_files = conn.execute("SELECT COUNT(*) FROM files WHERE owner_id=? AND status='active'", (u["id"],)).fetchone()[0]

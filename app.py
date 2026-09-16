@@ -55,8 +55,19 @@ def harden(resp):
 # ── دارایی‌های لوکال (فونت، pdf.js، هایلایتر) ──
 @app.context_processor
 def _inject_nav_user():
+    """تزریق username برای ناوبری"""
     from flask import session
-    return {"nav_username": session.get("uid")}
+    uid = session.get("uid")
+    username = None
+    if uid:
+        try:
+            from core import get_db
+            with get_db() as conn:
+                u = conn.execute("SELECT username FROM users WHERE id=?", (uid,)).fetchone()
+                username = u["username"] if u else None
+        except Exception:
+            pass
+    return {"nav_username": username}
 
 
 @app.route("/assets/<path:path>")

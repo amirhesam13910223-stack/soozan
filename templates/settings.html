@@ -1,0 +1,43 @@
+{% extends "app.html" %}
+{% block title %}تنظیمات — سوزان{% endblock %}
+{% block app_content %}
+<div class="wrap">
+  <div data-reveal style="margin-bottom:20px">
+    <h1 style="font-size:24px;font-weight:700">⚙️ تنظیمات</h1>
+    <p style="color:var(--dim);font-size:13px;margin-top:2px">مدیریت حساب و امنیت</p>
+  </div>
+
+  <div class="card pad" style="margin-bottom:16px">
+    <h2 style="font-size:16px;margin-bottom:12px">👤 اطلاعات حساب</h2>
+    <div class="field"><label class="label">نام کاربری</label><div class="input" style="opacity:.7">{{ username }}</div></div>
+    <div class="field"><label class="label">نام و نام خانوادگی</label><div class="input" style="opacity:.7">{{ full_name or "-" }}</div></div>
+    <div class="field"><label class="label">شماره موبایل</label><div class="input" style="opacity:.7;direction:ltr;text-align:left">{{ phone or "-" }}</div></div>
+    <small style="color:var(--mute);font-size:11px">تغییر این موارد در فاز بعد اضافه می‌شود</small>
+  </div>
+
+  <div class="card pad" style="margin-bottom:16px">
+    <h2 style="font-size:16px;margin-bottom:6px">🔐 تأیید دومرحله‌ای (TOTP)</h2>
+    <p style="color:var(--dim);font-size:12.5px;margin-bottom:12px">علاوه بر کد پیامکی، یک کد دوم از اپ احرازهویتی (مثل Google Authenticator) هم لازم می‌شود.</p>
+    {% if two_fa %}
+      <span class="badge badge-ok" style="display:inline-block;margin-bottom:12px">فعال</span>
+      {% if disable_route %}
+      <form method="post" action="{{ disable_route }}" onsubmit="return confirm('غیرفعال کردن تأیید دومرحله‌ای؟')">
+        <div class="field"><label class="label">رمز عبور فعلی (برای تأیید)</label>
+          <input class="input" type="password" name="password" required autocomplete="current-password"></div>
+        <button class="btn btn-block" type="submit" style="background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad)">غیرفعال‌سازی تأیید دومرحله‌ای</button>
+      </form>
+      {% endif %}
+    {% else %}
+      <span class="badge badge-warn" style="display:inline-block;margin-bottom:12px">غیرفعال</span>
+      {% if setup_route %}
+      <a class="btn btn-acc btn-block" href="{{ setup_route }}">فعال‌سازی تأیید دومرحله‌ای</a>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="card pad">
+    <h2 style="font-size:16px;margin-bottom:12px">🧯 منطقه خطر</h2>
+    <a class="btn btn-block" href="/logout" style="background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad)">🚪 خروج از حساب</a>
+  </div>
+</div>
+{% endblock %}

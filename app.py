@@ -114,6 +114,35 @@ def api_disk_usage():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/settings")
+def settings():
+    """صفحه تنظیمات حساب و امنیت"""
+    from flask import session, redirect
+    from ui import render as _render
+    from pathlib import Path as _P
+    from core import get_db
+    _uid = session.get("user_id") or session.get("uid")
+    if not _uid:
+        return redirect("/login")
+    with get_db() as conn:
+        u = conn.execute("SELECT * FROM users WHERE id=?", (_uid,)).fetchone()
+    if not u:
+        return redirect("/login")
+    two_fa = False
+    for col in ("totp_secret", "totp_enc", "totp"):
+        try:
+            two_fa = bool(u[col])
+            break
+        except Exception:
+            continue
+    tpl = (_P(__file__).parent / "templates" / "settings.html").read_text(encoding="utf-8")
+    return _render(tpl, username=u["username"],
+                   full_name=(u["full_name"] or "") if "full_name" in u.keys() else "",
+                   phone=(u["phone"] or "") if "phone" in u.keys() else "",
+                   two_fa=two_fa,
+                   setup_route="", disable_route="")
+
+
 @app.route("/profile")
 def profile():
     """صفحه پروفایل سازنده"""

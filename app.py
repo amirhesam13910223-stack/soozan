@@ -127,9 +127,14 @@ def profile():
         except Exception:
             continue
     joined = _t.strftime("%Y/%m/%d", _t.localtime(u["created_at"])) if u["created_at"] else "-"
-    return render_template("profile.html",
+    from ui import render as _render
+    from pathlib import Path as _P
+    _tpl = (_P(__file__).parent / "templates" / "profile.html").read_text(encoding="utf-8")
+    return _render(_tpl,
                            username=u["username"], joined=joined,
-                           n_files=n_files, n_views=n_views, two_fa=two_fa)
+                           n_files=n_files, n_views=n_views, two_fa=two_fa,
+                           full_name=(u["full_name"] or "") if "full_name" in u.keys() else "",
+                           phone=(u["phone"] or "") if "phone" in u.keys() else "")
 
 
 @app.route("/status")

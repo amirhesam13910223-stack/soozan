@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}ثبت‌نام — سوزان{% endblock %}
+{% block body %}
+<main style="min-height:100vh;display:grid;place-items:center;padding:24px 16px"><div class="wrap" style="max-width:430px;width:100%">
+    <div style="text-align:center;margin-bottom:24px">
+      <span style="font-size:52px">🔥</span>
+      <h1 style="font-size:22px;font-weight:700;margin-top:6px">سوزان</h1>
+      <p style="color:var(--dim);font-size:13px;margin-top:4px">ساخت حساب جدید</p>
+    </div>
+    <div class="card pad">
+      {% if error %}<div class="badge badge-bad" style="display:block;margin-bottom:12px">{{ error }}</div>{% endif %}
+      <form method="post" action="/register">
+        <div class="field"><label class="label" for="username">نام کاربری</label>
+          <input class="input" id="username" name="username" value="{{ username or '' }} " required autocomplete="username"></div>
+        <div class="field"><label class="label" for="password">رمز عبور</label>
+          <input class="input" type="password" id="password" name="password" required autocomplete="new-password"></div>
+        <div class="field"><label class="label" for="full_name">نام و نام خانوادگی</label>
+          <input class="input" id="full_name" name="full_name" value="{{ full_name or '' }} " required></div>
+        <div class="field"><label class="label" for="phone">شماره موبایل</label>
+          <input class="input" id="phone" name="phone" inputmode="numeric" placeholder="09xxxxxxxxx" value="{{ phone or '' }} " required style="direction:ltr;text-align:left"></div>
+        <button class="btn btn-acc btn-block" type="submit">ادامه ←</button>
+      </form>
+      <p style="text-align:center;margin-top:14px"><a href="/login" style="color:var(--acc);font-size:13px;text-decoration:none">حساب داری؟ وارد شو</a></p>
+    </div>
+  </div></main>
+{% endblock %}
+{% block footer %}{% endblock %}

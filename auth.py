@@ -19,6 +19,26 @@ def _read(name: str) -> str:
     return (TEMPLATES / name).read_text(encoding="utf-8")
 
 
+# ── migration: اطلاعات واقعی کاربران ──
+def _migrate_users():
+    from core import get_db
+    with get_db() as c:
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(users)")]
+        for name, ddl in [
+            ("full_name", "ALTER TABLE users ADD COLUMN full_name TEXT DEFAULT ''"),
+            ("phone", "ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''"),
+            ("phone_verified", "ALTER TABLE users ADD COLUMN phone_verified INTEGER DEFAULT 0"),
+        ]:
+            if name not in cols:
+                c.execute(ddl)
+
+_migrate_users()
+
+
+def _mask(phone):
+    return (phone[:4] + "***" + phone[-2:]) if phone and len(phone) >= 7 else (phone or "")
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     # اگر کاربر قبلاً login است، به داشبورد برود
@@ -42,10 +62,24 @@ def login():
             audit("LOGIN_2FA_PENDING", ip, f"user={username}")
             return redirect("/login/totp")
         
+        # OTP پیامکی (دمو): اگر شماره ثبت‌شده دارد
+        import secrets as _sec
+        import time as _t2
+        from core import get_db
+        with get_db() as c:
+            urow = c.execute("SELECT id, phone FROM users WHERE id=?", (user_id,)).fetchone()
+        if urow and urow["phone"]:
+            code = f"{_sec.randbelow(1000000):06d}"
+            session.clear()
+            session["login_pending"] = {"user_id": user_id, "code": code,
+                                        "exp": _t2.time() + 300, "tries": 0,
+                                        "phone": urow["phone"]}
+            audit("LOGIN_OTP_SENT", ip, f"user={username} (دمو)")
+            return redirect("/login/phone")
         # Session regeneration برای جلوگیری از Session Fixation
         session.clear()
-        session.permanent = True  # قبل از modified تا عمر اعمال شود
-        session.modified = True  # اجبار Flask به ارسال Set-Cookie جدید با Max-Age
+        session.permanent = True
+        session.modified = True
         session["user_id"] = user_id
         audit("LOGIN_OK", ip, f"user={username}")
         return redirect("/dashboard")
@@ -54,24 +88,98 @@ def login():
 
 @bp.route("/register", methods=["GET", "POST"])
 def register():
-    # اگر کاربر قبلاً login است، به داشبورد برود
+    """ثبت‌نام دومرحله‌ای: اطلاعات → کد تأیید (دمو) → ساخت حساب"""
+    import re as _re
+    import time as _time
+    import secrets as _sec
+    from core import get_db
     if "user_id" in session:
         return redirect("/dashboard")
-    
+
     if request.method == "POST":
         ip = client_ip()
         if not Security.rate_check(ip, "register"):
-            return render(_read("auth.html"), mode="register",
-                         error="تلاش بیش از حد. چند دقیقه صبر کنید.")
+            return render(_read("auth_register.html"),
+                          error="تلاش بیش از حد. چند دقیقه صبر کنید.")
+        # مرحله ۲: تأیید کد
+        if request.form.get("step") == "2":
+            pend = session.get("reg_pending")
+            code = request.form.get("code", "").strip()
+            if not pend or _time.time() > pend.get("exp", 0):
+                session.pop("reg_pending", None)
+                return render(_read("auth_register.html"), error="جلسه منقضی شد؛ دوباره شروع کنید.")
+            if pend.get("tries", 0) >= 5:
+                session.pop("reg_pending", None)
+                return render(_read("auth_register.html"), error="تلاش بیش از حد؛ از ابتدا ثبت‌نام کنید.")
+            if code != pend.get("code"):
+                pend["tries"] = pend.get("tries", 0) + 1
+                session["reg_pending"] = pend
+                return render(_read("auth_verify.html"), demo_code=pend["code"],
+                              phone=pend["phone"], error="کد نادرست است.")
+            ok, msg = Auth.register(pend["username"], pend["password"])
+            if not ok:
+                session.pop("reg_pending", None)
+                return render(_read("auth_register.html"), error=msg, username=pend["username"])
+            with get_db() as c:
+                c.execute("UPDATE users SET full_name=?, phone=?, phone_verified=1 WHERE username=?",
+                          (pend["full_name"], pend["phone"], pend["username"]))
+            session.pop("reg_pending", None)
+            audit("REGISTER_OK", ip, f"user={pend['username']} phone={_mask(pend['phone'])}")
+            return render(_read("auth.html"), mode="login",
+                          success="ثبت‌نام موفق. حالا وارد شوید.", username=pend["username"])
+        # مرحله ۱: دریافت اطلاعات
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        ok, msg = Auth.register(username, password)
-        if not ok:
-            return render(_read("auth.html"), mode="register", error=msg, username=username)
-        return render(_read("auth.html"), mode="register",
-                     success="ثبت‌نام موفق. حالا وارد شوید.", username=username)
-    return render(_read("auth.html"), mode="register")
+        full_name = request.form.get("full_name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        if len(full_name) < 3:
+            return render(_read("auth_register.html"), error="نام و نام خانوادگی را کامل وارد کنید.",
+                          username=username, full_name=full_name, phone=phone)
+        if not _re.match(r"^09\d{9}$", phone):
+            return render(_read("auth_register.html"), error="شماره موبایل معتبر نیست (مثال: 09123456789).",
+                          username=username, full_name=full_name, phone=phone)
+        code = f"{_sec.randbelow(1000000):06d}"
+        session["reg_pending"] = {"username": username, "password": password,
+                                  "full_name": full_name, "phone": phone,
+                                  "code": code, "exp": _time.time() + 300, "tries": 0}
+        audit("REGISTER_CODE", ip, f"user={username} (دمو)")
+        return render(_read("auth_verify.html"), demo_code=code, phone=phone)
+    return render(_read("auth_register.html"))
 
+
+
+
+@bp.route("/login/phone", methods=["GET", "POST"])
+def login_phone():
+    """مرحله دوم ورود: کد یک‌بار مصرف (فعلاً دمو)"""
+    import time as _time
+    pend = session.get("login_pending")
+    if not pend or _time.time() > pend.get("exp", 0):
+        session.pop("login_pending", None)
+        return redirect("/login")
+    if request.method == "POST":
+        ip = client_ip()
+        code = request.form.get("code", "").strip()
+        if pend.get("tries", 0) >= 5:
+            session.pop("login_pending", None)
+            return render(_read("auth.html"), mode="login", error="تلاش بیش از حد؛ دوباره وارد شوید.")
+        if code != pend.get("code"):
+            pend["tries"] = pend.get("tries", 0) + 1
+            session["login_pending"] = pend
+            return render(_read("auth_otp.html"), demo_code=pend["code"],
+                          phone_mask=_mask(pend["phone"]), error="کد نادرست است.")
+        user_id = pend["user_id"]
+        session.pop("login_pending", None)
+        if Auth.is_totp_enabled(user_id):
+            session["pending_2fa_user_id"] = user_id
+            return redirect("/login/totp")
+        session.clear()
+        session.permanent = True
+        session.modified = True
+        session["user_id"] = user_id
+        audit("LOGIN_OK", ip, f"user_id={user_id} (otp)")
+        return redirect("/dashboard")
+    return render(_read("auth_otp.html"), demo_code=pend["code"], phone_mask=_mask(pend["phone"]))
 
 @bp.route("/logout")
 def logout():

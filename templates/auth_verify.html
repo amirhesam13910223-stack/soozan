@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}تأیید کد — سوزان{% endblock %}
+{% block body %}
+<main style="min-height:100vh;display:grid;place-items:center;padding:24px 16px"><div class="wrap" style="max-width:430px;width:100%">
+    <div style="text-align:center;margin-bottom:24px">
+      <span style="font-size:52px">🔥</span>
+      <h1 style="font-size:22px;font-weight:700;margin-top:6px">سوزان</h1>
+      <p style="color:var(--dim);font-size:13px;margin-top:4px">تأیید شماره موبایل</p>
+    </div>
+    <div class="card pad" data-demo-code="{{ demo_code }}">
+      {% if error %}<div class="badge badge-bad" style="display:block;margin-bottom:12px">{{ error }}</div>{% endif %}
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:40px">📨</div>
+        <h2 style="font-size:18px;font-weight:700;margin-top:6px">کد تأیید ثبت‌نام</h2>
+        <p style="color:var(--dim);font-size:12.5px;margin-top:4px">کد به شماره {{ phone }} ارسال شد</p>
+      </div>
+      <div class="badge badge-warn" style="display:block;text-align:center;margin-bottom:14px;padding:10px">
+        🧪 حالت دمو (پیامک در فاز بعد): کد = <b style="letter-spacing:4px">{{ demo_code }}</b>
+      </div>
+      <form method="post" action="/register">
+        <input type="hidden" name="step" value="2">
+        <div class="field"><label class="label" for="code">کد ۶ رقمی</label>
+          <input class="input" id="code" name="code" inputmode="numeric" maxlength="6" required
+                 style="direction:ltr;text-align:center;letter-spacing:6px;font-family:var(--mono)"></div>
+        <button class="btn btn-acc btn-block" type="submit">تأیید و ساخت حساب</button>
+      </form>
+    </div>
+  </div></main>
+{% endblock %}
+{% block footer %}{% endblock %}

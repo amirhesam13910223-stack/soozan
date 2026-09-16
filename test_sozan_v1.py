@@ -112,8 +112,14 @@ def test_2_auth():
     s = requests.Session()
     r = s.post(f"{BASE}/register", data={
         "username": username,
-        "password": password
+        "password": password,
+        "full_name": "کاربر تستی",
+        "phone": "09120000001"
     })
+    import re as _re
+    _m = _re.search(r'data-demo-code="(\d+)"', r.text)
+    if _m:
+        r = s.post(f"{BASE}/register", data={"step": "2", "code": _m.group(1)})
     if r.status_code == 200 and ("موفق" in r.text or "success" in r.text.lower()):
         ok(f"ثبت‌نام {username}")
     else:
@@ -137,6 +143,11 @@ def test_2_auth():
         "username": username,
         "password": password
     }, allow_redirects=False)
+    if r.status_code == 302 and "/login/phone" in r.headers.get("Location", ""):
+        _rp = s.get(f"{BASE}/login/phone")
+        _m2 = _re.search(r'data-demo-code="(\d+)"', _rp.text)
+        if _m2:
+            r = s.post(f"{BASE}/login/phone", data={"code": _m2.group(1)}, allow_redirects=False)
     if r.status_code == 302:
         ok("ورود موفق (302 redirect)")
     else:

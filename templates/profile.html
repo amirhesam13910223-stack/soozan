@@ -6,6 +6,7 @@
     <div class="ux-avatar" style="width:72px;height:72px;font-size:28px;margin:0 auto 12px">{{ username[0] }}</div>
     <h1 style="font-size:22px;font-weight:700">{{ username }}</h1>
     <p style="color:var(--mute);font-size:12.5px;margin-top:4px">عضو از {{ joined }}</p>
+    <p style="color:var(--dim);font-size:13px;margin-top:8px">👤 {{ full_name or "-" }} · 📱 <span style="direction:ltr;display:inline-block">{{ phone or "-" }}</span></p>
     <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <span class="badge badge-info">📁 {{ n_files }} فایل فعال</span>
       <span class="badge badge-dim">👁 {{ n_views }} مشاهده کل</span>

@@ -270,7 +270,7 @@
         <p style="color:var(--dim);font-size:13.5px;margin-top:4px">این آیدی را به گیرنده بده:</p>
         <div class="uidbox" id="resultUid"></div>
         <button type="button" class="btn btn-acc btn-block" id="btnCopyUid">📋 کپی آیدی</button>
-        <button type="button" class="btn btn-ghost btn-block" id="btnShareEitaa" style="margin-top:10px">📱 اشتراک در ایتا</button>
+        <button type="button" class="btn btn-ghost btn-block" id="btnShareEitaa" style="margin-top:10px">📱 اشتراک گذاری</button>
 
         <div class="adminbox">
           <b style="font-size:13.5px">🧨 کد مدیریت — محرمانه</b>
@@ -425,9 +425,6 @@ $("btnCopyAdmin").addEventListener("click",async()=>{
 
 // ── اشتراک در ایتا (U5) ──
 (function(){
-  if(window.SoozanEitaa && SoozanEitaa.isEitaa){
-    $("btnShareEitaa").textContent = "📱 اشتراک داخل ایتا";
-  }
   $("btnShareEitaa").addEventListener("click", async ()=>{
     const uid = $("resultUid").textContent.trim();
     if(!uid){ toast("آیدی آماده نیست","err"); return; }

@@ -63,7 +63,7 @@
   <a class="ux-tab {{ 'active' if request.path.startswith('/manage') }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>
 </nav>
 
-<a class="ux-fab" href="/wizard" aria-label="ساخت فایل جدید">+</a>
+{% if request.path != '/wizard' %}<a class="ux-fab" href="/wizard" aria-label="ساخت فایل جدید">+</a>{% endif %}
 
 <script nonce="{{ nonce }}">
 (function(){

@@ -127,7 +127,7 @@ def profile():
         except Exception:
             continue
     joined = _t.strftime("%Y/%m/%d", _t.localtime(u["created_at"])) if u["created_at"] else "-"
-    return render_template("profile.html", nonce=secrets.token_urlsafe(24),
+    return render_template("profile.html",
                            username=u["username"], joined=joined,
                            n_files=n_files, n_views=n_views, two_fa=two_fa)
 

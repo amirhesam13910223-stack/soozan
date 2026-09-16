@@ -270,6 +270,7 @@
         <p style="color:var(--dim);font-size:13.5px;margin-top:4px">این آیدی را به گیرنده بده:</p>
         <div class="uidbox" id="resultUid"></div>
         <button type="button" class="btn btn-acc btn-block" id="btnCopyUid">📋 کپی آیدی</button>
+        <button type="button" class="btn btn-ghost btn-block" id="btnShareEitaa" style="margin-top:10px">📱 اشتراک در ایتا</button>
 
         <div class="adminbox">
           <b style="font-size:13.5px">🧨 کد مدیریت — محرمانه</b>
@@ -421,6 +422,24 @@ $("btnCopyUid").addEventListener("click",async()=>{
 $("btnCopyAdmin").addEventListener("click",async()=>{
   await navigator.clipboard.writeText($("resultAdmin").textContent);toast("کد مدیریت کپی شد ✔");
 });
+
+// ── اشتراک در ایتا (U5) ──
+(function(){
+  if(window.SoozanEitaa && SoozanEitaa.isEitaa){
+    $("btnShareEitaa").textContent = "📱 اشتراک داخل ایتا";
+  }
+  $("btnShareEitaa").addEventListener("click", async ()=>{
+    const uid = $("resultUid").textContent.trim();
+    if(!uid){ toast("آیدی آماده نیست","err"); return; }
+    const url = location.origin + "/v/" + uid;
+    const res = await SoozanEitaa.share(url, "فایل خودتخریب‌شونده سوزان");
+    if(res === "eitaa") toast("در ایتا باز شد ✔");
+    else if(res === "webshare") toast("منوی اشتراک باز شد ✔");
+    else if(res === "clipboard") toast("لینک کپی شد — در ایتا پیست کن ✔");
+    else if(res === "canceled") toast("اشتراک لغو شد");
+    else toast("اشتراک ممکن نشد","err");
+  });
+})();
 $("btnNew").addEventListener("click",()=>location.reload());
 $("btnGoDash").addEventListener("click",()=>location.href="/dashboard");
 

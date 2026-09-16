@@ -44,8 +44,8 @@ def login():
         
         # Session regeneration برای جلوگیری از Session Fixation
         session.clear()
-        session.modified = True  # اجبار Flask به ارسال Set-Cookie جدید
-        session.permanent = True
+        session.permanent = True  # قبل از modified تا عمر اعمال شود
+        session.modified = True  # اجبار Flask به ارسال Set-Cookie جدید با Max-Age
         session["user_id"] = user_id
         audit("LOGIN_OK", ip, f"user={username}")
         return redirect("/dashboard")

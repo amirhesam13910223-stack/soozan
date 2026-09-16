@@ -42,6 +42,16 @@ app.config.update(
 def gate():
     g.nonce = secrets.token_urlsafe(16)
     ip = client_ip()
+    # پاک کردن session زامبی: user_id در session هست ولی در دیتابیس نیست
+    if "user_id" in session:
+        try:
+            from core import get_db
+            with get_db() as c:
+                u = c.execute("SELECT id FROM users WHERE id=?", (session["user_id"],)).fetchone()
+                if not u:
+                    session.clear()
+        except Exception:
+            pass
     if Security.is_banned(ip):
         audit("BLOCKED_BANNED", ip, request.path)
         return "403 Forbidden", 403

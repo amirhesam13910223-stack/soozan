@@ -72,7 +72,7 @@ def login():
             code = f"{_sec.randbelow(1000000):06d}"
             session.clear()
             session["login_pending"] = {"user_id": user_id, "code": code,
-                                        "exp": _t2.time() + 300, "tries": 0,
+                                        "exp": _t2.time() + 120, "tries": 0,
                                         "phone": urow["phone"]}
             audit("LOGIN_OTP_SENT", ip, f"user={username} (دمو)")
             return redirect("/login/phone")
@@ -108,7 +108,7 @@ def register():
             if not pend or _time.time() > pend.get("exp", 0):
                 session.pop("reg_pending", None)
                 return render(_read("auth_register.html"), error="جلسه منقضی شد؛ دوباره شروع کنید.")
-            if pend.get("tries", 0) >= 5:
+            if pend.get("tries", 0) >= 4:
                 session.pop("reg_pending", None)
                 return render(_read("auth_register.html"), error="تلاش بیش از حد؛ از ابتدا ثبت‌نام کنید.")
             if code != pend.get("code"):
@@ -150,7 +150,7 @@ def register():
         code = f"{_sec.randbelow(1000000):06d}"
         session["reg_pending"] = {"username": username, "password": password,
                                   "full_name": full_name, "phone": phone,
-                                  "code": code, "exp": _time.time() + 300, "tries": 0}
+                                  "code": code, "exp": _time.time() + 120, "tries": 0}
         audit("REGISTER_CODE", ip, f"user={username} (دمو)")
         return render(_read("auth_verify.html"), demo_code=code, phone=phone)
     return render(_read("auth_register.html"))
@@ -169,7 +169,7 @@ def login_phone():
     if request.method == "POST":
         ip = client_ip()
         code = request.form.get("code", "").strip()
-        if pend.get("tries", 0) >= 5:
+        if pend.get("tries", 0) >= 4:
             session.pop("login_pending", None)
             return render(_read("auth.html"), mode="login", error="تلاش بیش از حد؛ دوباره وارد شوید.")
         if code != pend.get("code"):

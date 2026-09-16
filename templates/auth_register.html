@@ -9,7 +9,7 @@
     </div>
     <div class="card pad">
       {% if error %}<div class="badge badge-bad" style="display:block;margin-bottom:12px">{{ error }}</div>{% endif %}
-      <form method="post" action="/register">
+      <form method="post" action="/register" id="regForm">
         <div class="field">
           <label class="label" for="username">نام کاربری</label>
           <input class="input" id="username" name="username" value="{{ username or '' }}" placeholder="مثال: ali_rezaei" required autocomplete="username">
@@ -17,12 +17,16 @@
         </div>
         <div class="field">
           <label class="label" for="password">رمز عبور</label>
-          <input class="input" type="password" id="password" name="password" placeholder="حداقل ۸ کاراکتر" required autocomplete="new-password">
+          <div style="position:relative">
+            <input class="input" type="password" id="password" name="password" placeholder="حداقل ۸ کاراکتر" required autocomplete="new-password" style="padding-left:44px">
+            <button type="button" id="togglePw" aria-label="نمایش/مخفی رمز" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--dim);cursor:pointer;padding:6px;font-size:16px">👁</button>
+          </div>
           <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">ترکیب حرف بزرگ، کوچک و عدد = رمز قوی‌تر</small>
         </div>
         <div class="field">
           <label class="label" for="password2">تکرار رمز عبور</label>
           <input class="input" type="password" id="password2" name="password2" placeholder="همان رمز را دوباره بنویس" required autocomplete="new-password">
+          <small id="matchHint" style="display:block;font-size:11px;margin-top:5px;color:var(--mute)">برای تأیید، رمز را دقیقاً مثل بالا وارد کنید</small>
         </div>
         <div class="field">
           <label class="label" for="full_name">نام و نام خانوادگی</label>
@@ -34,10 +38,63 @@
           <input class="input" id="phone" name="phone" inputmode="numeric" placeholder="09123456789" value="{{ phone or '' }}" required style="direction:ltr;text-align:left">
           <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">برای کد تأیید ورود؛ با 09 شروع می‌شود</small>
         </div>
-        <button class="btn btn-acc btn-block" type="submit">ادامه ←</button>
+        <button class="btn btn-acc btn-block" type="submit" id="submitBtn">ادامه ←</button>
       </form>
       <p style="text-align:center;margin-top:14px"><a href="/login" style="color:var(--acc);font-size:13px;text-decoration:none">حساب داری؟ وارد شو</a></p>
     </div>
   </div></main>
+<script nonce="{{ nonce }}">
+(function(){
+  var pw = document.getElementById("password");
+  var pw2 = document.getElementById("password2");
+  var toggle = document.getElementById("togglePw");
+  var hint = document.getElementById("matchHint");
+  var submit = document.getElementById("submitBtn");
+
+  // show/hide فقط برای فیلد اصلی رمز
+  toggle.addEventListener("click", function(){
+    if(pw.type === "password"){
+      pw.type = "text";
+      toggle.textContent = "🙈";
+    } else {
+      pw.type = "password";
+      toggle.textContent = "👁";
+    }
+  });
+
+  // real-time validation تکرار رمز
+  function check(){
+    var v1 = pw.value, v2 = pw2.value;
+    if(!v2){
+      pw2.style.borderColor = "var(--line)";
+      hint.style.color = "var(--mute)";
+      hint.textContent = "برای تأیید، رمز را دقیقاً مثل بالا وارد کنید";
+      return true;
+    }
+    if(v1 === v2){
+      pw2.style.borderColor = "var(--ok)";
+      hint.style.color = "var(--ok)";
+      hint.textContent = "✓ رمزها مطابقت دارند";
+      return true;
+    } else {
+      pw2.style.borderColor = "var(--bad)";
+      hint.style.color = "var(--bad)";
+      hint.textContent = "✗ رمزها یکسان نیستند";
+      return false;
+    }
+  }
+  pw.addEventListener("input", check);
+  pw2.addEventListener("input", check);
+
+  // قبل از ارسال چک نهایی
+  document.getElementById("regForm").addEventListener("submit", function(e){
+    if(pw.value && pw2.value && pw.value !== pw2.value){
+      e.preventDefault();
+      check();
+      pw2.focus();
+    }
+  });
+})();
+</script>
 {% endblock %}
 {% block footer %}{% endblock %}

@@ -103,12 +103,13 @@ def test_1_health():
 # ═══════════════════════════════════════════════════════════
 def test_2_auth():
     section("۲. ثبت‌نام، ورود، و امنیت رمز")
-    
+
     import random
+    import re
     username = f"user_{int(time.time())}_{random.randint(100,999)}"
     password = "CorrectPass123"
-    
-    # ثبت‌نام
+
+    # ── ثبت‌نام دومرحله‌ای ──
     s = requests.Session()
     r = s.post(f"{BASE}/register", data={
         "username": username,
@@ -117,16 +118,27 @@ def test_2_auth():
         "full_name": "کاربر تستی",
         "phone": "09120000001"
     })
-    import re as _re
-    _m = _re.search(r'data-demo-code="(\d+)"', r.text)
-    if _m:
-        r = s.post(f"{BASE}/register", data={"step": "2", "code": _m.group(1)})
-    if r.status_code == 302 or ("موفق" in r.text):
-        ok(f"ثبت‌نام {username} (ورود خودکار)")
-    else:
-        bad(f"ثبت‌نام ناموفق: {r.status_code}")
+    if r.status_code != 200:
+        bad(f"مرحله ۱ ثبت‌نام ناموفق: {r.status_code}")
         return None, None
-    
+    ok(f"مرحله ۱ ثبت‌نام: دریافت اطلاعات")
+
+    # استخراج کد دمو
+    m = re.search(r'data-demo-code="(\d{6})"', r.text)
+    if not m:
+        bad("کد دمو در صفحه تأیید پیدا نشد")
+        return None, None
+    code = m.group(1)
+    ok(f"کد دمو استخراج شد: {code}")
+
+    # مرحله ۲: تأیید کد + ورود خودکار
+    r2 = s.post(f"{BASE}/register", data={"step": "2", "code": code})
+    if r2.status_code == 302 or "داشبورد" in r2.text or "dashboard" in r2.url:
+        ok(f"ثبت‌نام {username} + ورود خودکار")
+    else:
+        bad(f"ثبت‌نام/ورود خودکار ناموفق: {r2.status_code}")
+        return None, None
+
     # ورود با رمز اشتباه (از session جدید!)
     s_wrong = requests.Session()
     r = s_wrong.post(f"{BASE}/login", data={
@@ -137,38 +149,49 @@ def test_2_auth():
         ok("رمز اشتباه رد شد")
     else:
         bad(f"رمز اشتباه قبول شد! status={r.status_code}")
-    
-    # ورود با رمز صحیح
+
+    # ورود با رمز صحیح → OTP
     s = requests.Session()
     r = s.post(f"{BASE}/login", data={
         "username": username,
         "password": password
     }, allow_redirects=False)
     if r.status_code == 302 and "/login/phone" in r.headers.get("Location", ""):
-        _rp = s.get(f"{BASE}/login/phone")
-        _m2 = _re.search(r'data-demo-code="(\d+)"', _rp.text)
-        if _m2:
-            r = s.post(f"{BASE}/login/phone", data={"code": _m2.group(1)}, allow_redirects=False)
-    if r.status_code == 302:
-        ok("ورود موفق (302 redirect)")
+        ok("ورود مرحله ۱: OTP ارسال شد")
     else:
-        bad(f"ورود ناموفق: {r.status_code}")
-        return None, None
-    
+        bad(f"OTP ارسال نشد: {r.status_code}")
+        return s, username
+
+    # استخراج کد OTP
+    rp = s.get(f"{BASE}/login/phone")
+    m2 = re.search(r'data-demo-code="(\d{6})"', rp.text)
+    if not m2:
+        bad("کد OTP در صفحه پیدا نشد")
+        return s, username
+    otp_code = m2.group(1)
+
+    # تأیید OTP
+    r2 = s.post(f"{BASE}/login/phone", data={"code": otp_code}, allow_redirects=False)
+    if r2.status_code == 302 and "/dashboard" in r2.headers.get("Location", ""):
+        ok("ورود کامل با OTP")
+    else:
+        bad(f"ورود با OTP ناموفق: {r2.status_code}")
+
     # بررسی cookie
     if "soozan_sid" in s.cookies:
         ok(f"کوکی session صادر شد")
     else:
         bad("کوکی session صادر نشد")
-    
+
     # بررسی داشبورد
     r = s.get(f"{BASE}/dashboard")
     if r.status_code == 200 and username in r.text:
         ok(f"داشبورد بارگذاری شد (نام کاربری موجود)")
     else:
         bad("داشبورد بارگذاری نشد")
-    
+
     return s, username
+
 
 # ═══════════════════════════════════════════════════════════
 # بخش ۳: آپلود و ویزارد

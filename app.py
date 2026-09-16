@@ -171,31 +171,6 @@ def _mask_phone(ph):
     return (ph[:4] + "***" + ph[-2:]) if ph and len(ph) >= 7 else (ph or "")
 
 @app.route("/settings")
-def settings():
-    """صفحه تنظیمات: مدیریت کامل حساب"""
-    import time as _t
-    from flask import session, redirect
-    from core import get_db
-    u = _set_user()
-    if not u:
-        return redirect("/login")
-    sms = session.pop("demo_sms", None)
-    phone_ok = _t.time() < max(session.get("phone_old_ok", 0), session.get("phone_pw_ok", 0))
-    pw_ok = _t.time() < session.get("pw_ok_until", 0)
-    logins = []
-    try:
-        with get_db() as c:
-            logins = [dict(r) for r in c.execute(
-                "SELECT ts, ip FROM events WHERE action='LOGIN_OK' ORDER BY ts DESC LIMIT 5")]
-    except Exception:
-        pass
-    with get_db() as c:
-        n_files = c.execute("SELECT COUNT(*) FROM files WHERE owner_id=? AND status='active'", (u["id"],)).fetchone()[0]
-    return _set_render("settings.html", username=u["username"],
-        full_name=(u["full_name"] or "") if "full_name" in u.keys() else "",
-        phone=(u["phone"] or "") if "phone" in u.keys() else "",
-        joined=_t.strftime("%Y/%m/%d", _t.localtime(u["created_at"])) if u["created_at"] else "-",
-        n_files=n_files, sms=sms, phone_ok=phone_ok, pw_ok=pw_ok, logins=logins)
 
 @app.route("/settings/profile", methods=["POST"])
 def settings_profile():

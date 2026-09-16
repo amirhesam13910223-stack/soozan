@@ -33,3 +33,5 @@ nohup.out
 run.pid
 server.log
 venv/
+
+logs/

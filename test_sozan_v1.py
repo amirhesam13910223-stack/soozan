@@ -45,11 +45,17 @@ def section(title):
 # ═══════════════════════════════════════════════════════════
 def start_server():
     print("🚀 راه‌اندازی سرور...")
+    # ایجاد مسیر log در پوشه پروژه (نه /tmp که در Termux ممکن است نباشد)
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "test_server.log")
+    log_file = open(log_path, "w")
     proc = subprocess.Popen(
-        ["bash", "run.sh"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        env={**os.environ, "SOOZAN_DEV_MODE": "1"}
+        [sys.executable, "app.py"],
+        stdout=log_file,
+        stderr=log_file,
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        env={**os.environ, "SOOZAN_DEV_MODE": "1", "PYTHONUNBUFFERED": "1"}
     )
     for i in range(30):
         try:

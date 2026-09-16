@@ -1,0 +1,22 @@
+{% extends "app.html" %}
+{% block title %}پروفایل — سوزان{% endblock %}
+{% block app_content %}
+<div class="wrap">
+  <div class="card pad" style="text-align:center;margin-bottom:16px">
+    <div class="ux-avatar" style="width:72px;height:72px;font-size:28px;margin:0 auto 12px">{{ username[0] }}</div>
+    <h1 style="font-size:22px;font-weight:700">{{ username }}</h1>
+    <p style="color:var(--mute);font-size:12.5px;margin-top:4px">عضو از {{ joined }}</p>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <span class="badge badge-info">📁 {{ n_files }} فایل فعال</span>
+      <span class="badge badge-dim">👁 {{ n_views }} مشاهده کل</span>
+      {% if two_fa %}<span class="badge badge-ok">🔐 دومرحله‌ای فعال</span>{% else %}<span class="badge badge-warn">⚠️ دومرحله‌ای غیرفعال</span>{% endif %}
+    </div>
+  </div>
+  <div class="card pad">
+    <h2 style="font-size:16px;margin-bottom:12px">⚙️ حساب من</h2>
+    <a class="btn btn-ghost btn-block" href="/dashboard" style="margin-bottom:10px">📊 داشبورد</a>
+    <a class="btn btn-ghost btn-block" href="/manage" style="margin-bottom:10px">🛡️ پنل مدیریت</a>
+    <a class="btn btn-block" href="/logout" style="background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad)">🚪 خروج از حساب</a>
+  </div>
+</div>
+{% endblock %}

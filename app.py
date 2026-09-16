@@ -53,6 +53,12 @@ def harden(resp):
 
 
 # ── دارایی‌های لوکال (فونت، pdf.js، هایلایتر) ──
+@app.context_processor
+def _inject_nav_user():
+    from flask import session
+    return {"nav_username": session.get("uid")}
+
+
 @app.route("/assets/<path:path>")
 def assets(path):
     return serve_asset(path)
@@ -84,6 +90,33 @@ def api_disk_usage():
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/profile")
+def profile():
+    """صفحه پروفایل سازنده"""
+    from flask import render_template, session, redirect
+    import secrets, time as _t
+    from core import get_db
+    if "uid" not in session:
+        return redirect("/login")
+    with get_db() as conn:
+        u = conn.execute("SELECT * FROM users WHERE id=?", (session["uid"],)).fetchone()
+        if not u:
+            return redirect("/login")
+        n_files = conn.execute("SELECT COUNT(*) FROM files WHERE owner_id=? AND status='active'", (u["id"],)).fetchone()[0]
+        n_views = conn.execute("SELECT COALESCE(SUM(views_count),0) FROM files WHERE owner_id=?", (u["id"],)).fetchone()[0]
+    two_fa = False
+    for col in ("totp_secret", "totp_enc", "totp"):
+        try:
+            two_fa = bool(u[col])
+            break
+        except Exception:
+            continue
+    joined = _t.strftime("%Y/%m/%d", _t.localtime(u["created_at"])) if u["created_at"] else "-"
+    return render_template("profile.html", nonce=secrets.token_urlsafe(24),
+                           username=u["username"], joined=joined,
+                           n_files=n_files, n_views=n_views, two_fa=two_fa)
 
 
 @app.route("/status")

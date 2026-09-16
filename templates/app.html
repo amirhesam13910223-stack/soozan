@@ -1,17 +1,91 @@
 {% extends "base.html" %}
 
 {% block body %}
-<!-- Navigation Bar (فقط برای اپلیکیشن) -->
-<nav class="nav" style="position:sticky;top:0;z-index:50;background:rgba(10,16,34,0.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--line2)">
-  <div class="brand">
-    <span class="logo">🔥</span>
-    <span>سوزان</span>
+<style nonce="{{ nonce }}">
+/* ─── سیستم ناوبری v2 ─── */
+.ux-header{position:sticky;top:0;z-index:60;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#070b14b8;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.ux-brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.ux-brand .logo{font-size:22px}
+.ux-menu-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:#ffffff08;color:var(--text);font-size:18px;cursor:pointer;transition:var(--transition);display:grid;place-items:center}
+.ux-menu-btn:hover{background:#ffffff14;border-color:var(--line2)}
+.ux-menu-btn:active{transform:scale(.94)}
+.ux-backdrop{position:fixed;inset:0;background:#000a;backdrop-filter:blur(4px);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s}
+.ux-backdrop.open{opacity:1;pointer-events:auto}
+.ux-drawer{position:fixed;top:0;bottom:0;right:0;width:min(300px,84vw);background:var(--solid);border-left:1px solid var(--line);z-index:95;transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto}
+.ux-drawer.open{transform:translateX(0)}
+.ux-drawer-head{display:flex;align-items:center;gap:10px;padding:6px 8px 16px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.ux-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;font-size:18px;font-weight:700;color:#fff}
+.ux-drawer-user{font-size:14px;font-weight:600}
+.ux-drawer-sub{font-size:11px;color:var(--mute)}
+.ux-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;color:var(--dim);text-decoration:none;font-size:14px;font-weight:500;transition:var(--transition);margin-bottom:4px}
+.ux-item:hover{background:#ffffff0d;color:var(--text)}
+.ux-item.active{background:var(--acc-soft);color:var(--acc2)}
+.ux-item .ic{font-size:18px;width:24px;text-align:center}
+.ux-sep{height:1px;background:var(--line);margin:10px 6px}
+.ux-item.danger{color:var(--bad)}
+.ux-item.danger:hover{background:var(--bad-soft)}
+.ux-bottom{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:70;display:flex;gap:6px;padding:8px;background:#101830d9;border:1px solid var(--line2);border-radius:99px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.ux-tab{display:flex;align-items:center;gap:7px;padding:10px 22px;border-radius:99px;color:var(--dim);text-decoration:none;font-size:13px;font-weight:600;transition:var(--transition)}
+.ux-tab:hover{color:var(--text)}
+.ux-tab.active{background:linear-gradient(135deg,var(--acc),#ff8c5a);color:#fff;box-shadow:0 4px 16px #ff6b3547}
+.ux-tab .ic{font-size:16px}
+.ux-fab{position:fixed;bottom:84px;inset-inline-end:18px;z-index:70;width:56px;height:56px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:26px;font-weight:700;cursor:pointer;box-shadow:0 8px 26px #ff6b3566;display:grid;place-items:center;transition:var(--transition);animation:ux-pulse 2.6s infinite;text-decoration:none}
+.ux-fab:hover{transform:scale(1.06)}
+.ux-fab:active{transform:scale(.94)}
+@keyframes ux-pulse{0%,100%{box-shadow:0 8px 26px #ff6b3566}50%{box-shadow:0 8px 34px #ff6b35a8}}
+@media(max-width:480px){.ux-tab{padding:10px 16px}.ux-fab{bottom:80px;inset-inline-end:14px}}
+</style>
+
+<header class="ux-header">
+  <span class="ux-brand"><span class="logo">🔥</span> سوزان</span>
+  <button class="ux-menu-btn" id="uxMenuBtn" aria-label="منو">☰</button>
+</header>
+
+<div class="ux-backdrop" id="uxBackdrop"></div>
+<aside class="ux-drawer" id="uxDrawer">
+  <div class="ux-drawer-head">
+    <span class="ux-avatar">{{ (nav_username or '🔥')|first }}</span>
+    <div>
+      <div class="ux-drawer-user">{{ nav_username or 'کاربر مهمان' }}</div>
+      <div class="ux-drawer-sub">حساب سازنده</div>
+    </div>
   </div>
-  <div class="nav-links">
-    <a href="/" style="color:var(--dim);text-decoration:none;font-size:13px">🏠 خانه</a>
-    <a href="/manage" style="color:var(--acc);text-decoration:none;font-size:13px;font-weight:600;padding:6px 12px;background:var(--acc-bg);border-radius:8px">🔐 پنل مدیریت</a>
-  </div>
+  <a class="ux-item {{ 'active' if request.path == '/dashboard' }}" href="/dashboard"><span class="ic">📊</span> داشبورد</a>
+  <a class="ux-item {{ 'active' if request.path == '/wizard' }}" href="/wizard"><span class="ic">➕</span> ساخت فایل جدید</a>
+  <a class="ux-item {{ 'active' if request.path == '/profile' }}" href="/profile"><span class="ic">👤</span> پروفایل</a>
+  <a class="ux-item {{ 'active' if request.path.startswith('/manage') }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>
+  <div class="ux-sep"></div>
+  <a class="ux-item danger" href="/logout"><span class="ic">🚪</span> خروج</a>
+</aside>
+
+<nav class="ux-bottom">
+  <a class="ux-tab {{ 'active' if request.path in ['/', '/dashboard'] }}" href="/dashboard"><span class="ic">🏠</span> خانه</a>
+  <a class="ux-tab {{ 'active' if request.path.startswith('/manage') }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>
 </nav>
 
+<a class="ux-fab" href="/wizard" aria-label="ساخت فایل جدید">+</a>
+
+<script nonce="{{ nonce }}">
+(function(){
+  const d=document.getElementById("uxDrawer"), b=document.getElementById("uxBackdrop"), m=document.getElementById("uxMenuBtn");
+  if(!d||!b||!m) return;
+  const open=()=>{d.classList.add("open");b.classList.add("open")};
+  const close=()=>{d.classList.remove("open");b.classList.remove("open")};
+  m.addEventListener("click",()=>d.classList.contains("open")?close():open());
+  b.addEventListener("click",close);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+})();
+</script>
+
 {% block app_content %}{% endblock %}
+{% endblock %}
+
+{% block footer %}
+<div style="text-align:center;font-size:11px;color:#5f6c93;padding:26px 0 92px">
+<a href="/privacy" style="color:#7482ab;text-decoration:none;">سیاست حریم خصوصی</a>
+<span style="margin:0 6px;">·</span>
+<a href="/terms" style="color:#7482ab;text-decoration:none;">شرایط استفاده</a>
+<span style="margin:0 6px;">·</span>
+<a href="/report" style="color:#7482ab;text-decoration:none;">گزارش محتوا</a>
+</div>
 {% endblock %}

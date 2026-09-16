@@ -143,6 +143,217 @@ def settings():
                    setup_route="", disable_route="")
 
 
+# ─── تنظیمات: مدیریت کامل حساب ───
+def _set_user():
+    from flask import session
+    from core import get_db
+    _uid = session.get("user_id") or session.get("uid")
+    if not _uid:
+        return None
+    with get_db() as conn:
+        return conn.execute("SELECT * FROM users WHERE id=?", (_uid,)).fetchone()
+
+def _set_render(tpl_name, **kw):
+    from ui import render as _render
+    from pathlib import Path as _P
+    tpl = (_P(__file__).parent / "templates" / tpl_name).read_text(encoding="utf-8")
+    return _render(tpl, **kw)
+
+def _set_otp(purpose, phone, desc, new_phone=None):
+    import secrets as _sec, time as _t
+    from flask import session
+    code = f"{_sec.randbelow(1000000):06d}"
+    session["set_otp"] = {"purpose": purpose, "code": code, "exp": _t.time() + 120,
+                          "tries": 0, "phone": phone, "new_phone": new_phone, "desc": desc}
+    return _set_render("settings_otp.html", demo_code=code, desc=desc, phone=_mask_phone(phone))
+
+def _mask_phone(ph):
+    return (ph[:4] + "***" + ph[-2:]) if ph and len(ph) >= 7 else (ph or "")
+
+@app.route("/settings")
+def settings():
+    """صفحه تنظیمات: مدیریت کامل حساب"""
+    import time as _t
+    from flask import session, redirect
+    from core import get_db
+    u = _set_user()
+    if not u:
+        return redirect("/login")
+    sms = session.pop("demo_sms", None)
+    phone_ok = _t.time() < max(session.get("phone_old_ok", 0), session.get("phone_pw_ok", 0))
+    pw_ok = _t.time() < session.get("pw_ok_until", 0)
+    logins = []
+    try:
+        with get_db() as c:
+            logins = [dict(r) for r in c.execute(
+                "SELECT ts, ip FROM events WHERE action='LOGIN_OK' ORDER BY ts DESC LIMIT 5")]
+    except Exception:
+        pass
+    with get_db() as c:
+        n_files = c.execute("SELECT COUNT(*) FROM files WHERE owner_id=? AND status='active'", (u["id"],)).fetchone()[0]
+    return _set_render("settings.html", username=u["username"],
+        full_name=(u["full_name"] or "") if "full_name" in u.keys() else "",
+        phone=(u["phone"] or "") if "phone" in u.keys() else "",
+        joined=_t.strftime("%Y/%m/%d", _t.localtime(u["created_at"])) if u["created_at"] else "-",
+        n_files=n_files, sms=sms, phone_ok=phone_ok, pw_ok=pw_ok, logins=logins)
+
+@app.route("/settings/profile", methods=["POST"])
+def settings_profile():
+    from flask import session, redirect
+    from core import get_db
+    u = _set_user()
+    if not u:
+        return redirect("/login")
+    fn = request.form.get("full_name", "").strip()
+    if len(fn) >= 3:
+        with get_db() as c:
+            c.execute("UPDATE users SET full_name=? WHERE id=?", (fn, u["id"]))
+        session["demo_sms"] = None
+    return redirect("/settings")
+
+@app.route("/settings/phone/start1", methods=["POST"])
+def settings_phone_start1():
+    """راه ۱: کد به شماره قدیمی"""
+    from flask import session, redirect
+    u = _set_user()
+    if not u:
+        return redirect("/login")
+    return _set_otp("phone_old", u["phone"], "تغییر شماره — تأیید شماره فعلی")
+
+@app.route("/settings/phone/start2", methods=["POST"])
+def settings_phone_start2():
+    """راه ۲: تأیید با رمز حساب"""
+    import time as _t
+    from flask import session, redirect
+    from core import Auth, get_db
+    u = _set_user()
+    if not u:
+        return redirect("/login")
+    ok, _, _msg = Auth.login(u["username"], request.form.get("password", ""))
+    if not ok:
+        session["demo_sms"] = "❌ رمز حساب اشتباه بود"
+        return redirect("/settings")
+    session["phone_pw_ok"] = _t.time() + 300
+    return redirect("/settings")
+
+@app.route("/settings/phone/new", methods=["POST"])
+def settings_phone_new():
+    """ثبت شماره جدید + کد به شماره جدید"""
+    import re as _re, time as _t
+    from flask import session, redirect
+    u = _set_user()
+    if not u:
+        return redirect("/login")
+    if not (_t.time() < max(session.get("phone_old_ok", 0), session.get("phone_pw_ok", 0))):
+        session["demo_sms"] = "❌ اول یکی از دو راه تأیید را انجام بده"
+        return redirect("/settings")
+    np = request.form.get("new_phone", "").strip()
+    if not _re.match(r"^09\d{9}$", np):
+        session["demo_sms"] = "❌ شماره جدید معتبر نیست"
+        return redirect("/settings")
+    return _set_otp("phone_new", np, "تغییر شماره — تأیید شماره جدید", new_phone=np)
+
+@app.route("/settings/password/start", methods=["POST"])
+def settings_password_start():
+    """تغییر رمز: اول رمز قدیمی، بعد کد به شماره"""
+    from flask import redirect
+    from core import Auth
+    u = _set_user()
+    if not u:
+        return redirect("/login")
+    ok, _, _m = Auth.login(u["username"], request.form.get("current_password", ""))
+    if not ok:
+        from flask import session as _s
+        _s["demo_sms"] = "❌ رمز فعلی اشتباه است"
+        return redirect("/settings")
+    return _set_otp("pw_change", u["phone"], "تغییر رمز عبور — تأیید با کد")
+
+@app.route("/settings/otp/verify", methods=["POST"])
+def settings_otp_verify():
+    import time as _t
+    from flask import session, redirect
+    from core import get_db
+    pend = session.get("set_otp")
+    if not pend or _t.time() > pend.get("exp", 0):
+        session.pop("set_otp", None)
+        session["demo_sms"] = "❌ کد منقضی شد"
+        return redirect("/settings")
+    code = request.form.get("code", "").strip()
+    if pend.get("tries", 0) >= 4:
+        session.pop("set_otp", None)
+        session["demo_sms"] = "❌ تلاش بیش از حد؛ کد باطل شد"
+        return redirect("/settings")
+    if code != pend.get("code"):
+        pend["tries"] = pend.get("tries", 0) + 1
+        session["set_otp"] = pend
+        return _set_render("settings_otp.html", demo_code=pend["code"], desc=pend["desc"],
+                           phone=_mask_phone(pend["phone"]), error="کد نادرست است")
+    purpose = pend.get("purpose")
+    session.pop("set_otp", None)
+    u = _set_user()
+    if purpose == "phone_old":
+        session["phone_old_ok"] = _t.time() + 300
+        return redirect("/settings")
+    if purpose == "phone_new" and u:
+        np = pend.get("new_phone")
+        with get_db() as c:
+            c.execute("UPDATE users SET phone=?, phone_verified=1 WHERE id=?", (np, u["id"]))
+        session.pop("phone_old_ok", None); session.pop("phone_pw_ok", None)
+        session["demo_sms"] = f"📨 پیامک به شماره قدیمی {_mask_phone(u['phone'])}: شماره موبایل حساب سوزان شما به {np} تغییر کرد."
+        return redirect("/settings")
+    if purpose == "pw_change":
+        session["pw_ok_until"] = _t.time() + 300
+        return redirect("/settings")
+    return redirect("/settings")
+
+@app.route("/settings/password/new", methods=["POST"])
+def settings_password_new():
+    import os, time as _t
+    from flask import session, redirect
+    from core import Auth, get_db
+    u = _set_user()
+    if not u or not (_t.time() < session.get("pw_ok_until", 0)):
+        session["demo_sms"] = "❌ ابتدا کد تأیید را وارد کن"
+        return redirect("/settings")
+    p1 = request.form.get("new_password", "")
+    p2 = request.form.get("new_password2", "")
+    if len(p1) < 8 or p1 != p2:
+        session["demo_sms"] = "❌ رمز جدید معتبر نیست یا تکرارش متفاوت است"
+        return redirect("/settings")
+    salt = os.urandom(Auth.SALT_LEN)
+    pw_hash = Auth._hash(p1, salt)
+    with get_db() as c:
+        c.execute("UPDATE users SET pw_hash=?, salt=? WHERE id=?", (pw_hash, salt, u["id"]))
+    session.pop("pw_ok_until", None)
+    session["demo_sms"] = f"📨 پیامک: رمز حساب سوزان شما در ساعت {_t.strftime('%H:%M')} تاریخ {_t.strftime('%Y/%m/%d')} تغییر یافت."
+    return redirect("/settings")
+
+@app.route("/settings/delete", methods=["POST"])
+def settings_delete():
+    from flask import session, redirect
+    from core import Auth, get_db
+    u = _set_user()
+    if not u:
+        return redirect("/login")
+    if request.form.get("ack") != "on":
+        session["demo_sms"] = "❌ تأیید حذف را علامت بزن"
+        return redirect("/settings")
+    ok, _, _m = Auth.login(u["username"], request.form.get("password", ""))
+    if not ok:
+        session["demo_sms"] = "❌ رمز اشتباه است"
+        return redirect("/settings")
+    with get_db() as c:
+        paths = [r["file_path"] for r in c.execute("SELECT file_path FROM files WHERE owner_id=? AND file_path!=''", (u["id"],))]
+        c.execute("DELETE FROM views WHERE file_id IN (SELECT id FROM files WHERE owner_id=?)", (u["id"],))
+        c.execute("DELETE FROM files WHERE owner_id=?", (u["id"],))
+        c.execute("DELETE FROM users WHERE id=?", (u["id"],))
+    for pp in [x[0] for x in paths]:
+        try: os.remove(pp)
+        except Exception: pass
+    session.clear()
+    return redirect("/login")
+
+
 @app.route("/profile")
 def profile():
     """صفحه پروفایل سازنده"""

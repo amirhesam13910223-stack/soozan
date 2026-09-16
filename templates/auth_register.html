@@ -7,6 +7,10 @@
       <h1 style="font-size:22px;font-weight:700;margin-top:6px">سوزان</h1>
       <p style="color:var(--dim);font-size:13px;margin-top:4px">ساخت حساب جدید</p>
     </div>
+    <div style="display:flex;gap:6px;background:#0d142899;border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:18px">
+      <a href="/login" style="flex:1;text-align:center;padding:9px;border-radius:9px;text-decoration:none;font-size:14px;color:var(--dim)">🔐 ورود</a>
+      <a href="/register" style="flex:1;text-align:center;padding:9px;border-radius:9px;text-decoration:none;font-size:14px;background:linear-gradient(135deg,var(--acc),#ff8c5a);color:#fff;font-weight:600">✨ ثبت‌نام</a>
+    </div>
     <div class="card pad">
       {% if error %}<div class="badge badge-bad" style="display:block;margin-bottom:12px">{{ error }}</div>{% endif %}
       <form method="post" action="/register" id="regForm">

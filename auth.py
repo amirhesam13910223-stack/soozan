@@ -190,10 +190,17 @@ def login_phone():
         return redirect("/dashboard")
     return render(_read("auth_otp.html"), demo_code=pend["code"], phone_mask=_mask(pend["phone"]))
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["GET", "POST"])
 def logout():
-    session.clear()
-    return redirect("/login")
+    """خروج امن: صفحه هشدار + تأیید صریح (بدون کد)"""
+    if request.method == "POST":
+        if request.form.get("confirm") == "1" and request.form.get("ack") == "on":
+            session.clear()
+            return redirect("/login")
+        return redirect("/dashboard")
+    if "user_id" not in session:
+        return redirect("/login")
+    return render(_read("logout_confirm.html"))
 
 
 def require_auth(fn):

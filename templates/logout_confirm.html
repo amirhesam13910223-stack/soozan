@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}خروج — سوزان{% endblock %}
+{% block body %}
+<main style="min-height:100vh;display:grid;place-items:center;padding:24px 16px"><div class="wrap" style="max-width:400px;width:100%">
+  <div class="card pad" style="text-align:center">
+    <div style="font-size:46px">⚠️</div>
+    <h1 style="font-size:19px;font-weight:700;margin-top:8px">خروج از حساب</h1>
+    <p style="color:var(--dim);font-size:13px;margin-top:6px">با خروج، دسترسی به داشبورد و فایل‌هایت قطع می‌شود و برای ورود دوباره به کد پیامکی نیاز داری.</p>
+    <form method="post" action="/logout" style="margin-top:18px">
+      <label class="tgl" style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:14px;cursor:pointer">
+        <span class="sw"><input type="checkbox" name="ack" id="ack"><i></i></span>
+        <span style="font-size:13.5px;font-weight:600">خروج را تأیید می‌کنم</span>
+      </label>
+      <button class="btn btn-block" type="submit" name="confirm" value="1" id="btnOut" disabled
+              style="background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad)">🚪 خروج از حساب</button>
+    </form>
+    <a class="btn btn-ghost btn-block" href="/dashboard" style="margin-top:10px">انصراف — برگشت به داشبورد</a>
+  </div>
+</div></main>
+<script nonce="{{ nonce }}">
+(function(){
+  var ck=document.getElementById("ack"), bt=document.getElementById("btnOut");
+  ck.addEventListener("change",function(){ bt.disabled=!ck.checked; });
+})();
+</script>
+{% endblock %}
+{% block footer %}{% endblock %}

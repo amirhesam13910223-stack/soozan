@@ -8,7 +8,7 @@ import sys
 import os
 import secrets
 from pathlib import Path
-from flask import Flask, g, request
+from flask import Flask, g, request, session
 
 sys.path.insert(0, str(Path(__file__).parent))
 from core import bootstrap, MasterKeyManager, Security, audit, LOG_PATH, DB_PATH, client_ip

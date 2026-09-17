@@ -81,6 +81,17 @@ def _inject_nav_user():
     return {"nav_username": username}
 
 
+
+@app.before_request
+def admin_local_only():
+    """پنل مدیریت: فقط از همان دستگاه (localhost) — از وب/شبکه 404"""
+    if request.path == "/manage" or request.path.startswith("/manage/"):
+        ip = (request.remote_addr or "").split(",")[0].strip()
+        if ip not in ("127.0.0.1", "::1"):
+            from flask import abort
+            abort(404)
+
+
 @app.route("/assets/<path:path>")
 def assets(path):
     return serve_asset(path)

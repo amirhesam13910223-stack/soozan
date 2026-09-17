@@ -16,7 +16,7 @@
   <div class="card pad">
     <h2 style="font-size:16px;margin-bottom:12px">⚙️ حساب من</h2>
     <a class="btn btn-ghost btn-block" href="/dashboard" style="margin-bottom:10px">📊 داشبورد</a>
-    <a class="btn btn-ghost btn-block" href="/manage" style="margin-bottom:10px">🛡️ پنل مدیریت</a>
+{% if request.remote_addr in ("127.0.0.1", "::1") %}    <a class="btn btn-ghost btn-block" href="/manage" style="margin-bottom:10px">🛡️ پنل مدیریت</a>{% endif %}
     <a class="btn btn-block" href="/logout" style="background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad)">🚪 خروج از حساب</a>
   </div>
 </div>

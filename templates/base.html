@@ -249,6 +249,12 @@ select option { background: #0b1226 !important; color: #eef2ff !important; }
   .burn-selector{grid-template-columns:1fr 1fr}
     .toast{bottom:16px;min-width:200px}
 }
+
+/* ── ضد سرریز: متن بلند = خط بیشتر، نه صفحه عریض‌تر ── */
+html,body{overflow-x:hidden;max-width:100%}
+.wrap,.card,.field{overflow-wrap:break-word;word-wrap:break-word}
+.badge{max-width:100%}
+p,small,label,.label{overflow-wrap:break-word}
 </style>
 {% block head %}{% endblock %}
 </head>

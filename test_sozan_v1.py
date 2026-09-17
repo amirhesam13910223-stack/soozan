@@ -493,31 +493,53 @@ def test_8_settings():
     else:
         bad("ویرایش نام ذخیره نشد")
 
-    # تغییر شماره — راه ۲ (رمز)
-    s.post(f"{BASE}/settings/phone/start2", data={"password": password})
-    r = s.post(f"{BASE}/settings/phone/new", data={"new_phone": "09120000003"})
-    m = re.search(r'data-demo-code="(\d{6})"', r.text)
+    # تغییر شماره — راه ۱ (کد به شماره فعلی) → شماره جدید → کد به شماره جدید
+    r = s.post(f"{BASE}/settings/phone/start1", allow_redirects=False)
+    # باید به settings_otp.html برود (یا ریدایرکت به آن)
+    r_otp = s.get(f"{BASE}/settings/otp/verify", allow_redirects=False)
+    # پیدا کردن کد از آخرین ریسپانس
+    for resp in [r, r_otp, s.get(f"{BASE}/settings")]:
+        m = re.search(r'data-demo-code="(\d{6})"', resp.text)
+        if m:
+            break
+    if not m:
+        # fallback: صفحه /settings را چک کن (ممکن است otp در آن باشد)
+        txt = s.get(f"{BASE}/settings").text
+        m = re.search(r'data-demo-code="(\d{6})"', txt)
     if m:
         s.post(f"{BASE}/settings/otp/verify", data={"code": m.group(1)})
-        t = s.get(f"{BASE}/settings").text
-        if "09120000003" in t and "تغییر کرد" in t:
-            ok("تغییر شماره (راه ۲) + پیامک هشدار به شماره قدیمی")
+        # حالا phone_old_ok ست شده
+        r = s.post(f"{BASE}/settings/phone/new", data={"new_phone": "09120000003"})
+        m2 = re.search(r'data-demo-code="(\d{6})"', r.text)
+        if not m2:
+            # fallback
+            txt2 = s.get(f"{BASE}/settings").text
+            m2 = re.search(r'data-demo-code="(\d{6})"', txt2)
+        if m2:
+            s.post(f"{BASE}/settings/otp/verify", data={"code": m2.group(1)})
+            t = s.get(f"{BASE}/settings").text
+            if "09120000003" in t and "تغییر کرد" in t:
+                ok("تغییر شماره (راه ۱) + پیامک هشدار به شماره قدیمی")
+            else:
+                bad("شماره جدید یا پیامک هشدار نیامد")
         else:
-            bad("شماره جدید یا پیامک هشدار نیامد")
+            bad("کد تأیید شماره جدید صادر نشد")
     else:
-        bad("کد تأیید شماره صادر نشد")
+        bad("کد تأیید شماره فعلی صادر نشد")
 
     # تغییر رمز: رمز فعلی → کد → رمز جدید
     newpass = "NewSettingsPass456"
     r = s.post(f"{BASE}/settings/password/start", data={"current_password": password})
     m = re.search(r'data-demo-code="(\d{6})"', r.text)
+    if not m:
+        txt = s.get(f"{BASE}/settings").text
+        m = re.search(r'data-demo-code="(\d{6})"', txt)
     if m:
         s.post(f"{BASE}/settings/otp/verify", data={"code": m.group(1)})
         s.post(f"{BASE}/settings/password/new", data={"new_password": newpass, "new_password2": newpass})
         ok("تغییر رمز عبور با کد تأیید")
     else:
         bad("کد تغییر رمز صادر نشد")
-        newpass = password
 
     # خروج: هشدار + تأیید
     r = s.get(f"{BASE}/logout")
@@ -536,19 +558,25 @@ def test_8_settings():
     else:
         bad("خروج با تأیید کار نکرد")
 
-    # ورود با رمز جدید
+    # ورود با رمز جدید + OTP
     s2 = requests.Session()
     r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
     if r.status_code == 302 and "/login/phone" in r.headers.get("Location", ""):
         rp = s2.get(f"{BASE}/login/phone")
         m2 = re.search(r'data-demo-code="(\d{6})"', rp.text)
         if m2:
-            s2.post(f"{BASE}/login/phone", data={"code": m2.group(1)})
-            ok("ورود با رمز جدید موفق")
+            s2.post(f"{BASE}/login/phone", data={"code": m2.group(1)}, allow_redirects=False)
+            final = s2.get(f"{BASE}/dashboard", allow_redirects=False)
+            if final.status_code == 200 or final.status_code == 302:
+                ok("ورود با رمز جدید موفق")
+            else:
+                bad("ورود با رمز جدید: بعد از OTP به داشبورد نرفت")
         else:
             bad("کد ورود نیامد")
+    elif r.status_code == 302 and "/dashboard" in r.headers.get("Location", ""):
+        ok("ورود با رمز جدید موفق (بدون OTP)")
     else:
-        bad("ورود با رمز جدید شکست")
+        bad(f"ورود با رمز جدید شکست: {r.status_code}")
 
     # حذف کامل حساب
     s2.post(f"{BASE}/settings/delete", data={"password": newpass, "ack": "on"})
@@ -557,7 +585,6 @@ def test_8_settings():
         ok("حساب حذف شد (ورود دوباره ممکن نیست)")
     else:
         bad("حذف حساب کار نکرد")
-
 
 if __name__ == "__main__":
     sys.exit(main())

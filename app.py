@@ -135,12 +135,27 @@ def settings():
             break
         except Exception:
             continue
+    import time as _t
+    sms = session.pop("demo_sms", None)
+    phone_ok = _t.time() < max(session.get("phone_old_ok", 0), session.get("phone_pw_ok", 0))
+    pw_ok = _t.time() < session.get("pw_ok_until", 0)
+    logins = []
+    try:
+        with get_db() as c:
+            logins = [dict(r) for r in c.execute(
+                "SELECT ts, ip FROM events WHERE action='LOGIN_OK' ORDER BY ts DESC LIMIT 5")]
+    except Exception:
+        pass
+    with get_db() as c:
+        n_files = c.execute("SELECT COUNT(*) FROM files WHERE owner_id=? AND status='active'", (u["id"],)).fetchone()[0]
+    
     tpl = (_P(__file__).parent / "templates" / "settings.html").read_text(encoding="utf-8")
     return _render(tpl, username=u["username"],
                    full_name=(u["full_name"] or "") if "full_name" in u.keys() else "",
                    phone=(u["phone"] or "") if "phone" in u.keys() else "",
-                   two_fa=two_fa,
-                   setup_route="", disable_route="")
+                   joined=_t.strftime("%Y/%m/%d", _t.localtime(u["created_at"])) if u["created_at"] else "-",
+                   n_files=n_files, sms=sms, phone_ok=phone_ok, pw_ok=pw_ok, logins=logins,
+                   two_fa=two_fa, setup_route="", disable_route="")
 
 
 # ─── تنظیمات: مدیریت کامل حساب ───

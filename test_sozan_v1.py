@@ -467,6 +467,7 @@ def main():
 def test_8_settings():
     section("۸. تنظیمات: مدیریت کامل حساب")
     import random
+    import re
     username = f"set_{int(time.time())}_{random.randint(100,999)}"
     password = "SettingsPass123"
     s = requests.Session()

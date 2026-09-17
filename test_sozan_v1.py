@@ -343,23 +343,27 @@ def test_5_manage(results):
     
     admin_code = results["image"]["admin_code"]
     
-    # ورود به پنل با کد صحیح (HTML یا redirect)
-    r = requests.post(f"{BASE}/api/manage/enter", json={"code": admin_code}, allow_redirects=False)
-    if r.status_code in (200, 302):
-        ok(f"پنل مدیریت پاسخ داد (status={r.status_code})")
+    # ورود به پنل: کد مدیریت → کد پیامکی به مالک → پنل
+    ms = requests.Session()
+    r = ms.post(f"{BASE}/api/manage/enter", data={"admin_code": admin_code})
+    m2 = re.search(r'data-demo-code="(\d{6})"', r.text)
+    if m2:
+        ok("کد مدیریت پذیرفته شد → کد پیامکی به شماره مالک")
+        r2 = ms.post(f"{BASE}/manage/otp", data={"code": m2.group(1)}, allow_redirects=False)
+        if r2.status_code == 302 and "/manage/panel/" in r2.headers.get("Location", ""):
+            ok("کد پیامکی درست → ورود به پنل مدیریت")
+        else:
+            bad(f"بعد از کد پیامکی به پنل نرفت: {r2.status_code}")
     else:
-        bad(f"پنل مدیریت: {r.status_code}")
-    
-    # کد اشتباه (باید متفاوت پاسخ دهد)
-    r = requests.post(f"{BASE}/api/manage/enter", json={"code": "WRONG_CODE_12345"}, allow_redirects=False)
-    if r.status_code in (200, 302, 400, 401, 403):
-        ok(f"کد اشتباه پاسخ داد (status={r.status_code})")
-    else:
-        warn(f"کد اشتباه پاسخ غیرمنتظره: {r.status_code}")
+        bad("کد پیامکی برای مدیریت صادر نشد")
 
-# ═══════════════════════════════════════════════════════════
-# بخش ۶: امنیت (rate limit)
-# ═══════════════════════════════════════════════════════════
+    # کد اشتباه (باید متفاوت پاسخ دهد)
+    r = requests.post(f"{BASE}/api/manage/enter", data={"admin_code": "WRONG_CODE_12345"}, allow_redirects=False)
+    if r.status_code in (401, 403) or "نامعتبر" in r.text:
+        ok("کد مدیریت اشتباه رد شد")
+    else:
+        bad(f"کد اشتباه پاسخ غیرمنتظره داد: {r.status_code}")
+
 def test_6_security():
     section("۶. امنیت (محدودیت نرخ ورود)")
     

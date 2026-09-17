@@ -1,0 +1,22 @@
+{% extends "app.html" %}
+{% block title %}سوزان — تأیید دومرحله‌ای مدیریت{% endblock %}
+{% block title %}
+<div class="wrap" style="max-width:430px;margin:0 auto;padding:24px 16px">
+  <div style="text-align:center;margin-bottom:18px" data-reveal>
+    <span style="font-size:44px">🛡️</span>
+    <h1 style="font-size:22px;font-weight:700;margin-top:8px">تأیید دومرحله‌ای</h1>
+    <p style="color:var(--dim);font-size:13px;margin-top:4px">کد مدیریت درست بود ✔<br>حالا کدی که به شماره مالک فایل <b style="direction:ltr;display:inline-block">{{ phone }}</b> ارسال شد را وارد کن</p>
+  </div>
+  {% if demo_code %}<div class="badge badge-info" style="display:block;padding:10px;margin-bottom:14px;white-space:normal;line-height:1.8" data-demo-code="{{ demo_code }}">📨 پیامک دمو: کد شما <b style="direction:ltr;display:inline-block;font-family:var(--mono)">{{ demo_code }}</b> · ۲ دقیقه اعتبار · ۴ بار تلاش</div>{% endif %}
+  {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
+  <div class="card pad">
+    <form method="post" action="/manage/otp">
+      <div class="field"><label class="label" for="code">کد ۶ رقمی پیامکی</label>
+        <input class="input" id="code" name="code" inputmode="numeric" maxlength="6" placeholder="------" required
+               style="direction:ltr;text-align:center;letter-spacing:6px;font-family:var(--mono)"></div>
+      <button class="btn btn-acc btn-block" type="submit">ورود به پنل مدیریت ←</button>
+    </form>
+    <a href="/manage" style="display:block;text-align:center;color:var(--dim);font-size:12.5px;margin-top:12px;text-decoration:none">انصراف</a>
+  </div>
+</div>
+{% endblock %}

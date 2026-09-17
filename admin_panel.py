@@ -160,12 +160,68 @@ def manage_enter():
     uid = row["uid"]
     status = row["status"]
     
-    # صدور توکن
-    token = issue_mgmt_token(file_id)
-    audit("MANAGE_ENTER_OK", ip, f"uid={uid[:12]}… status={status}")
-    
-    return redirect(f"/manage/panel/{token}")
+    # ── مرحله ۲: کد پیامکی به شماره مالک فایل ──
+    with get_db() as conn:
+        owner = conn.execute(
+            "SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)",
+            (file_id,)
+        ).fetchone()
+    phone = (owner["phone"] if owner else "") or ""
+    from pathlib import Path as _P
+    from ui import render as _render
+    import os as _os
+    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+    if not phone:
+        audit("MANAGE_ENTER_NOPHONE", ip, level="WARN")
+        tpl = (_P(__file__).parent / "templates" / "manage_enter.html").read_text(encoding="utf-8")
+        return _render(tpl, error="حساب مالک این فایل شماره موبایل ثبت‌شده ندارد؛ مدیریت ممکن نیست."), 403
 
+    import secrets as _sec, time as _t
+    code = f"{_sec.randbelow(1000000):06d}"
+    session["manage_otp"] = {"code": code, "exp": _t.time() + 120, "tries": 0,
+                             "file_id": file_id, "uid": uid}
+    audit("MANAGE_OTP_SENT", ip, f"uid={uid[:12]}… status={status}")
+    masked = phone[:4] + "***" + phone[-2:]
+    tpl = (_P(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
+    return _render(tpl, demo_code=code if DEV else None, phone=masked, error=None)
+
+
+
+
+@bp.post("/manage/otp")
+def manage_otp_verify():
+    """تأیید کد پیامکی مالک → صدور توکن مدیریت"""
+    import time as _t
+    from pathlib import Path as _P
+    from ui import render as _render
+    ip = client_ip()
+    pend = session.get("manage_otp")
+
+    def _page(err):
+        tpl = (_P(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
+        return _render(tpl, error=err, demo_code=None, phone="")
+
+    if not pend:
+        return redirect(url_for("admin_panel.manage_enter_page"))
+    if _t.time() > pend["exp"]:
+        session.pop("manage_otp", None)
+        audit("MANAGE_OTP_EXPIRED", ip, level="WARN")
+        return _page("کد منقضی شد؛ دوباره کد مدیریت را وارد کن."), 401
+    code = (request.form.get("code") or "").strip()
+    if code != pend["code"]:
+        pend["tries"] = pend.get("tries", 0) + 1
+        session["manage_otp"] = pend
+        if pend["tries"] >= 4:
+            session.pop("manage_otp", None)
+            Security.violation(ip, "manage_otp_wrong")
+            audit("MANAGE_OTP_LOCKED", ip, level="WARN")
+            return _page("تلاش بیش از حد؛ کد باطل شد."), 401
+        audit("MANAGE_OTP_WRONG", ip, level="WARN")
+        return _page("کد صحیح نیست"), 401
+    session.pop("manage_otp", None)
+    token = issue_mgmt_token(pend["file_id"])
+    audit("MANAGE_ENTER_OK", ip, f"uid={pend['uid'][:12]}… (با کد پیامکی)")
+    return redirect(f"/manage/panel/{token}")
 
 # ─── رندر پنل مدیریت ─────────────────────────────
 

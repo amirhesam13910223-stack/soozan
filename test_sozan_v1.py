@@ -336,6 +336,7 @@ def test_4_view(results):
 # ═══════════════════════════════════════════════════════════
 def test_5_manage(results):
     section("۵. پنل مدیریت")
+    import re
     
     if "image" not in results:
         warn("فایل برای تست وجود ندارد")

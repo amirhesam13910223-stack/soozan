@@ -463,3 +463,97 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def test_8_settings():
+    section("۸. تنظیمات: مدیریت کامل حساب")
+    import random
+    username = f"set_{int(time.time())}_{random.randint(100,999)}"
+    password = "SettingsPass123"
+    s = requests.Session()
+    r = s.post(f"{BASE}/register", data={"username": username, "password": password,
+                                         "password2": password, "full_name": "تنظیمات تست",
+                                         "phone": "09120000002"})
+    m = re.search(r'data-demo-code="(\d{6})"', r.text)
+    if not m:
+        bad("ثبت‌نام برای تست تنظیمات شکست")
+        return
+    s.post(f"{BASE}/register", data={"step": "2", "code": m.group(1)})
+
+    r = s.get(f"{BASE}/settings")
+    if r.status_code == 200 and "تنظیمات" in r.text:
+        ok("صفحه تنظیمات باز شد")
+    else:
+        bad(f"تنظیمات باز نشد: {r.status_code}")
+        return
+
+    s.post(f"{BASE}/settings/profile", data={"full_name": "نام جدید تستی"})
+    if "نام جدید تستی" in s.get(f"{BASE}/settings").text:
+        ok("ویرایش نام ذخیره شد")
+    else:
+        bad("ویرایش نام ذخیره نشد")
+
+    # تغییر شماره — راه ۲ (رمز)
+    s.post(f"{BASE}/settings/phone/start2", data={"password": password})
+    r = s.post(f"{BASE}/settings/phone/new", data={"new_phone": "09120000003"})
+    m = re.search(r'data-demo-code="(\d{6})"', r.text)
+    if m:
+        s.post(f"{BASE}/settings/otp/verify", data={"code": m.group(1)})
+        t = s.get(f"{BASE}/settings").text
+        if "09120000003" in t and "تغییر کرد" in t:
+            ok("تغییر شماره (راه ۲) + پیامک هشدار به شماره قدیمی")
+        else:
+            bad("شماره جدید یا پیامک هشدار نیامد")
+    else:
+        bad("کد تأیید شماره صادر نشد")
+
+    # تغییر رمز: رمز فعلی → کد → رمز جدید
+    newpass = "NewSettingsPass456"
+    r = s.post(f"{BASE}/settings/password/start", data={"current_password": password})
+    m = re.search(r'data-demo-code="(\d{6})"', r.text)
+    if m:
+        s.post(f"{BASE}/settings/otp/verify", data={"code": m.group(1)})
+        s.post(f"{BASE}/settings/password/new", data={"new_password": newpass, "new_password2": newpass})
+        ok("تغییر رمز عبور با کد تأیید")
+    else:
+        bad("کد تغییر رمز صادر نشد")
+        newpass = password
+
+    # خروج: هشدار + تأیید
+    r = s.get(f"{BASE}/logout")
+    if r.status_code == 200 and "تأیید" in r.text:
+        ok("صفحه هشدار خروج")
+    else:
+        bad("صفحه هشدار خروج نیامد")
+    s.post(f"{BASE}/logout", data={"confirm": "1"})
+    if s.get(f"{BASE}/dashboard", allow_redirects=False).status_code == 200:
+        ok("خروج بدون checkbox انجام نشد (درست)")
+    else:
+        bad("خروج بدون تأیید انجام شد!")
+    s.post(f"{BASE}/logout", data={"confirm": "1", "ack": "on"})
+    if s.get(f"{BASE}/dashboard", allow_redirects=False).status_code == 302:
+        ok("خروج با تأیید انجام شد")
+    else:
+        bad("خروج با تأیید کار نکرد")
+
+    # ورود با رمز جدید
+    s2 = requests.Session()
+    r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
+    if r.status_code == 302 and "/login/phone" in r.headers.get("Location", ""):
+        rp = s2.get(f"{BASE}/login/phone")
+        m2 = re.search(r'data-demo-code="(\d{6})"', rp.text)
+        if m2:
+            s2.post(f"{BASE}/login/phone", data={"code": m2.group(1)})
+            ok("ورود با رمز جدید موفق")
+        else:
+            bad("کد ورود نیامد")
+    else:
+        bad("ورود با رمز جدید شکست")
+
+    # حذف کامل حساب
+    s2.post(f"{BASE}/settings/delete", data={"password": newpass, "ack": "on"})
+    r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
+    if r.status_code == 200:
+        ok("حساب حذف شد (ورود دوباره ممکن نیست)")
+    else:
+        bad("حذف حساب کار نکرد")

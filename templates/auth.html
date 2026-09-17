@@ -25,12 +25,8 @@
   </div>
 
   <div class="card pad" data-reveal>
-    <div style="display:flex;background:#0a102299;border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:22px">
-      <a href="/login" style="flex:1;text-align:center;padding:9px;border-radius:9px;text-decoration:none;font-size:14px;{% if mode=='login' %}background:linear-gradient(135deg,var(--acc),#ff8c5a);color:#fff;font-weight:600{% else %}color:var(--dim){% endif %}">ورود</a>
-      <a href="/register" style="flex:1;text-align:center;padding:9px;border-radius:9px;text-decoration:none;font-size:14px;{% if mode!='login' %}background:linear-gradient(135deg,var(--acc),#ff8c5a);color:#fff;font-weight:600{% else %}color:var(--dim){% endif %}">ثبت‌نام</a>
-    </div>
-
-    {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
+      {% include "auth_tabs.html" %}
+{% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
     {% if success %}<div class="alert alert-ok">{{ success }}</div>{% endif %}
 
     <form method="post" id="form">

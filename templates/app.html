@@ -54,13 +54,13 @@
   <a class="ux-item {{ 'active' if request.path == '/wizard' }}" href="/wizard"><span class="ic">➕</span> ساخت فایل جدید</a>
   <a class="ux-item {{ 'active' if request.path == '/profile' }}" href="/profile"><span class="ic">👤</span> پروفایل</a>
   <a class="ux-item {{ 'active' if request.path == '/settings' }}" href="/settings"><span class="ic">⚙️</span> تنظیمات</a>
-  <a class="ux-item {{ 'active' if request.path.startswith('/manage') }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>
+  <a class="ux-item {{ 'active' if request.path.startswith('/admin') else '' }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>
   <div class="ux-sep"></div>
   <a class="ux-item danger" href="/logout"><span class="ic">🚪</span> خروج</a>
 </aside>
 
 <nav class="ux-bottom">
-  <a class="ux-tab {{ 'active' if request.path in ['/', '/dashboard'] }}" href="/dashboard"><span class="ic">🏠</span> خانه</a>
+  <a class="ux-tab {{ 'active' if request.path in ('/',) or request.path.startswith(('/dashboard','/profile','/wizard','/settings')) else '' }}" href="/dashboard"><span class="ic">🏠</span> سازنده</a>
   <a class="ux-tab {{ 'active' if request.path.startswith('/manage') }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>
 </nav>
 

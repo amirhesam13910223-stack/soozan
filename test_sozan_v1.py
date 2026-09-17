@@ -507,9 +507,9 @@ def test_8_settings():
             r2 = s.post(f"{BASE}/settings/phone/new", data={"new_phone": "09120000003"})
             m2 = re.search(r'data-demo-code="(\d{6})"', r2.text)
             if m2:
-                s.post(f"{BASE}/settings/otp/verify", data={"code": m2.group(1)})
-                t = s.get(f"{BASE}/settings").text
-                if "09120000003" in t and "تغییر یافت" in t:
+                rv3 = s.post(f"{BASE}/settings/otp/verify", data={"code": m2.group(1)})
+                # rv3 بعد از redirect، محتوای /settings را دارد (demo_sms pop شده و نمایش داده شده)
+                if "09120000003" in rv3.text and "تغییر یافت" in rv3.text:
                     ok("تغییر شماره + پیام موفقیت + هشدار به شماره قدیمی")
                 else:
                     bad("شماره یا پیام موفقیت نیامد")

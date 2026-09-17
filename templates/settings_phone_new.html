@@ -1,0 +1,27 @@
+{% extends "app.html" %}
+{% block title %}شماره جدید — سوزان{% endblock %}
+{% block app_content %}
+<div class="wrap" style="max-width:470px">
+  <div data-reveal style="margin-bottom:16px">
+    <h1 style="font-size:22px;font-weight:700">📱 تغییر شماره موبایل</h1>
+    <p style="color:var(--dim);font-size:13px;margin-top:2px">شماره فعلی تأیید شد ({{ phone }}) — حالا شماره جدید را وارد کن</p>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:16px">
+    <span class="badge badge-ok" style="padding:7px 10px">۱) کد به شماره فعلی ✓</span>
+    <span class="badge badge-warn" style="padding:7px 10px">۲) شماره جدید</span>
+    <span class="badge" style="padding:7px 10px;opacity:.5">۳) کد به شماره جدید</span>
+  </div>
+  <div class="card pad">
+    <form method="post" action="/settings/phone/new">
+      <div class="field">
+        <label class="label" for="new_phone">شماره موبایل جدید</label>
+        <input class="input" id="new_phone" name="new_phone" inputmode="numeric" maxlength="11"
+               placeholder="09xxxxxxxxx" required style="direction:ltr;text-align:left;letter-spacing:1px;font-family:var(--mono)">
+        <small style="display:block;color:var(--mute);font-size:11px;margin-top:6px">۱۱ رقم، شروع با 09 — کد تأیید به همین شماره ارسال می‌شود</small>
+      </div>
+      <button class="btn btn-acc btn-block" type="submit">ارسال کد به شماره جدید ←</button>
+    </form>
+    <a class="btn btn-ghost btn-block" href="/settings" style="margin-top:10px">انصراف</a>
+  </div>
+</div>
+{% endblock %}

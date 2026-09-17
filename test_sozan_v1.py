@@ -493,38 +493,32 @@ def test_8_settings():
     s.post(f"{BASE}/settings/profile", data={"full_name": "نام جدید تستی"})
     ok("ویرایش نام") if "نام جدید تستی" in s.get(f"{BASE}/settings").text else bad("نام ذخیره نشد")
 
-    # ── تغییر شماره ──
-    print("  [log] phone/start2...")
-    r1 = s.post(f"{BASE}/settings/phone/start2", data={"password": password}, allow_redirects=False)
-    print(f"  [log]   start2: status={r1.status_code}, Location={r1.headers.get('Location')}")
-
-    print("  [log] phone/new...")
-    r2 = s.post(f"{BASE}/settings/phone/new", data={"new_phone": "09120000003"})
-    print(f"  [log]   new: status={r2.status_code}, url={r2.url}, len={len(r2.text)}")
-    m = re.search(r'data-demo-code="(\d{6})"', r2.text)
-    print(f"  [log]   OTP code in response: {m.group(1) if m else None}")
-
+    # ── تغییر شماره: کد فعلی → صفحه شماره جدید → کد جدید ──
+    r = s.post(f"{BASE}/settings/phone/start")
+    m = re.search(r'data-demo-code="(\d{6})"', r.text)
     if m:
-        print(f"  [log] otp/verify با {m.group(1)}...")
         rv = s.post(f"{BASE}/settings/otp/verify", data={"code": m.group(1)}, allow_redirects=False)
-        print(f"  [log]   verify: status={rv.status_code}, Location={rv.headers.get('Location')}")
-
-        print("  [log] GET /settings بعد از verify...")
-        t_page = s.get(f"{BASE}/settings").text
-        print(f"  [log]   '09120000003' in page: {'09120000003' in t_page}")
-        print(f"  [log]   'تغییر کرد' in page: {'تغییر کرد' in t_page}")
-        print(f"  [log]   badge-warn exists: {'badge-warn' in t_page}")
-        warn_match = re.search(r'class="badge[^"]*"[^>]*>([^<]{20,})<', t_page)
-        print(f"  [log]   badge content: {warn_match.group(1)[:80] if warn_match else 'none'}")
-
-        if "09120000003" in t_page and "تغییر کرد" in t_page:
-            ok("تغییر شماره + پیامک هشدار")
-        elif "09120000003" in t_page:
-            ok("تغییر شماره (بدون پیامک هشدار — قابل قبول)")
+        if rv.status_code == 302 and "/settings/phone/new" in rv.headers.get("Location", ""):
+            pg = s.get(f"{BASE}/settings/phone/new")
+            if pg.status_code == 200 and "شماره جدید" in pg.text:
+                ok("گام ۲: صفحه اختصاصی شماره جدید")
+            else:
+                bad("صفحه شماره جدید باز نشد")
+            r2 = s.post(f"{BASE}/settings/phone/new", data={"new_phone": "09120000003"})
+            m2 = re.search(r'data-demo-code="(\d{6})"', r2.text)
+            if m2:
+                s.post(f"{BASE}/settings/otp/verify", data={"code": m2.group(1)})
+                t = s.get(f"{BASE}/settings").text
+                if "09120000003" in t and "تغییر یافت" in t:
+                    ok("تغییر شماره + پیام موفقیت + هشدار به شماره قدیمی")
+                else:
+                    bad("شماره یا پیام موفقیت نیامد")
+            else:
+                bad("کد شماره جدید صادر نشد")
         else:
-            bad("شماره جدید ذخیره نشد")
+            bad("بعد از کد فعلی، به صفحه شماره جدید نرفت")
     else:
-        bad("کد تأیید شماره صادر نشد")
+        bad("کد شماره فعلی صادر نشد")
 
     # ── تغییر رمز ──
     newpass = "NewSettingsPass456"

@@ -21,55 +21,26 @@
   </div>
 
   <div class="card pad" style="margin-bottom:16px">
-    <h2 style="font-size:16px;margin-bottom:6px">📱 شماره موبایل</h2>
-    <p style="color:var(--dim);font-size:12.5px;margin-bottom:10px">شماره فعلی: <b style="direction:ltr;display:inline-block">{{ phone }}</b></p>
-    {% if phone_ok %}
-      <form method="post" action="/settings/phone/new">
-        <div class="field"><label class="label">شماره جدید</label>
-          <input class="input" name="new_phone" inputmode="numeric" placeholder="09xxxxxxxxx" required style="direction:ltr;text-align:left"></div>
-        <button class="btn btn-acc btn-block" type="submit">ارسال کد به شماره جدید</button>
-      </form>
-    {% else %}
-      <p style="color:var(--mute);font-size:12px;margin-bottom:10px">راه ۱: کد به شماره فعلی · راه ۲: تأیید با رمز حساب</p>
-      <form method="post" action="/settings/phone/start1" style="margin-bottom:10px">
-        <button class="btn btn-ghost btn-block" type="submit">۱) ارسال کد به شماره فعلی</button>
-      </form>
-      <form method="post" action="/settings/phone/start2">
-        <div class="field"><label class="label">رمز حساب</label>
-          <input class="input" type="password" name="password" required autocomplete="current-password"></div>
-        <button class="btn btn-ghost btn-block" type="submit">۲) تأیید با رمز حساب</button>
-      </form>
-    {% endif %}
+    <h2 style="font-size:16px;margin-bottom:8px">📱 شماره موبایل</h2>
+    <p style="color:var(--dim);font-size:13px;margin-bottom:10px">شماره فعلی: <b class="badge badge-info" style="direction:ltr;display:inline-block;padding:6px 10px">{{ phone }}</b></p>
+    <div style="border:1px dashed var(--line);border-radius:10px;padding:11px 12px;margin-bottom:12px;background:#ffffff05">
+      <p style="font-size:11.5px;color:var(--mute);margin:0;line-height:1.9">مراحل تغییر: ۱) کد تأیید به <b>شماره فعلی</b> · ۲) وارد کردن <b>شماره جدید</b> · ۳) کد تأیید به <b>شماره جدید</b><br>پیامک هشدار تغییر، به شماره قدیمی هم ارسال می‌شود.</p>
+    </div>
+    <form method="post" action="/settings/phone/start">
+      <button class="btn btn-acc btn-block" type="submit">📱 تغییر شماره موبایل</button>
+    </form>
   </div>
 
   <div class="card pad" style="margin-bottom:16px">
-    <h2 style="font-size:16px;margin-bottom:6px">🔑 تغییر رمز عبور</h2>
-    {% if pw_ok %}
-      <form method="post" action="/settings/password/new">
-        <div class="field"><label class="label">رمز جدید</label>
-          <input class="input" type="password" name="new_password" id="np1" required autocomplete="new-password"></div>
-        <div class="field"><label class="label">تکرار رمز جدید</label>
-          <input class="input" type="password" name="new_password2" id="np2" required autocomplete="new-password">
-          <small id="mh" style="display:block;font-size:11px;margin-top:5px;color:var(--mute)">حداقل ۸ کاراکتر</small></div>
-        <button class="btn btn-acc btn-block" type="submit">ذخیره رمز جدید</button>
-      </form>
-      <script nonce="{{ nonce }}">
-      (function(){
-        var a=document.getElementById("np1"),b=document.getElementById("np2"),h=document.getElementById("mh");
-        function ck(){ if(!b.value){b.style.borderColor="var(--line)";return;}
-          if(a.value===b.value){b.style.borderColor="var(--ok)";h.style.color="var(--ok)";h.textContent="✓ مطابقت دارد";}
-          else{b.style.borderColor="var(--bad)";h.style.color="var(--bad)";h.textContent="✗ یکسان نیست";} }
-        a.addEventListener("input",ck); b.addEventListener("input",ck);
-      })();
-      </script>
-    {% else %}
-      <p style="color:var(--dim);font-size:12.5px;margin-bottom:10px">اول رمز فعلی، بعد کد پیامکی، بعد رمز جدید.</p>
-      <form method="post" action="/settings/password/start">
-        <div class="field"><label class="label">رمز فعلی</label>
-          <input class="input" type="password" name="current_password" required autocomplete="current-password"></div>
-        <button class="btn btn-ghost btn-block" type="submit">شروع تغییر رمز</button>
-      </form>
-    {% endif %}
+    <h2 style="font-size:16px;margin-bottom:8px">🔑 تغییر رمز عبور</h2>
+    <div style="border:1px dashed var(--line);border-radius:10px;padding:11px 12px;margin-bottom:12px;background:#ffffff05">
+      <p style="font-size:11.5px;color:var(--mute);margin:0;line-height:1.9">مراحل: ۱) <b>رمز فعلی</b> · ۲) کد تأیید <b>پیامکی</b> · ۳) <b>رمز جدید</b> + تکرار<br>پیامک هشدار تغییر رمز با ساعت دقیق، به شماره حسابت می‌رود.</p>
+    </div>
+    <form method="post" action="/settings/password/start">
+      <div class="field"><label class="label" for="cur_pw">رمز عبور فعلی</label>
+        <input class="input" type="password" id="cur_pw" name="current_password" required autocomplete="current-password"></div>
+      <button class="btn btn-ghost btn-block" type="submit">شروع تغییر رمز ←</button>
+    </form>
   </div>
 
   <div class="card pad" style="margin-bottom:16px">

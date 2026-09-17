@@ -186,47 +186,35 @@ def settings_profile():
         session["demo_sms"] = None
     return redirect("/settings")
 
-@app.route("/settings/phone/start1", methods=["POST"])
-def settings_phone_start1():
-    """راه ۱: کد به شماره قدیمی"""
-    from flask import session, redirect
+@app.route("/settings/phone/start", methods=["POST"])
+def settings_phone_start():
+    """تغییر شماره — گام ۱: کد به شماره فعلی"""
     u = _set_user()
     if not u:
         return redirect("/login")
-    return _set_otp("phone_old", u["phone"], "تغییر شماره — تأیید شماره فعلی")
+    return _set_otp("phone_old", u["phone"], "تغییر شماره — گام ۱: تأیید شماره فعلی")
 
-@app.route("/settings/phone/start2", methods=["POST"])
-def settings_phone_start2():
-    """راه ۲: تأیید با رمز حساب"""
-    import time as _t
-    from flask import session, redirect
-    from core import Auth, get_db
-    u = _set_user()
-    if not u:
-        return redirect("/login")
-    ok, _, _msg = Auth.login(u["username"], request.form.get("password", ""))
-    if not ok:
-        session["demo_sms"] = "❌ رمز حساب اشتباه بود"
-        return redirect("/settings")
-    session["phone_pw_ok"] = _t.time() + 300
-    return redirect("/settings")
-
-@app.route("/settings/phone/new", methods=["POST"])
+@app.route("/settings/phone/new", methods=["GET", "POST"])
 def settings_phone_new():
-    """ثبت شماره جدید + کد به شماره جدید"""
+    """تغییر شماره — گام ۲: صفحه شماره جدید + گام ۳: کد به شماره جدید"""
     import re as _re, time as _t
     from flask import session, redirect
     u = _set_user()
     if not u:
         return redirect("/login")
-    if not (_t.time() < max(session.get("phone_old_ok", 0), session.get("phone_pw_ok", 0))):
-        session["demo_sms"] = "❌ اول یکی از دو راه تأیید را انجام بده"
+    if not (_t.time() < session.get("phone_old_ok", 0)):
+        session["demo_sms"] = "❌ اول شماره فعلی را با کد تأیید کن"
         return redirect("/settings")
+    if request.method == "GET":
+        return _set_render("settings_phone_new.html", phone=_mask_phone(u["phone"]))
     np = request.form.get("new_phone", "").strip()
     if not _re.match(r"^09\d{9}$", np):
-        session["demo_sms"] = "❌ شماره جدید معتبر نیست"
-        return redirect("/settings")
-    return _set_otp("phone_new", np, "تغییر شماره — تأیید شماره جدید", new_phone=np)
+        session["demo_sms"] = "❌ شماره جدید معتبر نیست (مثال: 09123456789)"
+        return redirect("/settings/phone/new")
+    if np == u["phone"]:
+        session["demo_sms"] = "❌ شماره جدید با شماره فعلی یکی است"
+        return redirect("/settings/phone/new")
+    return _set_otp("phone_new", np, "تغییر شماره — گام ۳: تأیید شماره جدید", new_phone=np)
 
 @app.route("/settings/password/start", methods=["POST"])
 def settings_password_start():
@@ -268,21 +256,22 @@ def settings_otp_verify():
     u = _set_user()
     if purpose == "phone_old":
         session["phone_old_ok"] = _t.time() + 300
-        return redirect("/settings")
+        return redirect("/settings/phone/new")
     if purpose == "phone_new" and u:
         np = pend.get("new_phone")
         with get_db() as c:
             c.execute("UPDATE users SET phone=?, phone_verified=1 WHERE id=?", (np, u["id"]))
         session.pop("phone_old_ok", None); session.pop("phone_pw_ok", None)
-        session["demo_sms"] = f"📨 پیامک به شماره قدیمی {_mask_phone(u['phone'])}: شماره موبایل حساب سوزان شما به {np} تغییر کرد."
+        session["demo_sms"] = f"✅ شماره موبایل حساب شما به {np} تغییر یافت. · 📨 پیامک به شماره قدیمی {_mask_phone(u['phone'])}: شماره موبایل حساب سوزان شما به شماره دیگری تغییر کرد."
         return redirect("/settings")
     if purpose == "pw_change":
         session["pw_ok_until"] = _t.time() + 300
-        return redirect("/settings")
+        return redirect("/settings/password/new")
     return redirect("/settings")
 
-@app.route("/settings/password/new", methods=["POST"])
+@app.route("/settings/password/new", methods=["GET", "POST"])
 def settings_password_new():
+    """تغییر رمز — گام ۳: صفحه رمز جدید"""
     import os, time as _t
     from flask import session, redirect
     from core import Auth, get_db
@@ -290,6 +279,8 @@ def settings_password_new():
     if not u or not (_t.time() < session.get("pw_ok_until", 0)):
         session["demo_sms"] = "❌ ابتدا کد تأیید را وارد کن"
         return redirect("/settings")
+    if request.method == "GET":
+        return _set_render("settings_password_new.html")
     p1 = request.form.get("new_password", "")
     p2 = request.form.get("new_password2", "")
     if len(p1) < 8 or p1 != p2:

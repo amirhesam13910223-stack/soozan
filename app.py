@@ -522,6 +522,24 @@ def test_clear_ban():
             getattr(Security, _attr).clear()
     return "ok"
 
+
+
+@app.route("/debug/session")
+def debug_session():
+    """نمایش محتوای session برای دیباگ"""
+    from flask import session, jsonify
+    import os
+    if os.environ.get("SOOZAN_DEV_MODE") != "1":
+        return "forbidden", 403
+    return jsonify({
+        "user_id": session.get("user_id"),
+        "demo_sms": session.get("demo_sms"),
+        "set_otp": session.get("set_otp"),
+        "phone_old_ok": session.get("phone_old_ok"),
+        "pw_ok_until": session.get("pw_ok_until"),
+    })
+
+
 if __name__ == "__main__":
     if DEV_MODE:
         print("!" * 56)

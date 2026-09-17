@@ -381,6 +381,7 @@ def test_6_security():
 # بخش ۷: کلید ارشد (بدون تداخل)
 # ═══════════════════════════════════════════════════════════
 def test_7_master_key():
+        test_8_settings()
     section("۷. کلید ارشد و ساختار فایل")
     
     key_path = Path("data/.master.key")
@@ -443,6 +444,7 @@ def main():
             test_5_manage(results)
         test_6_security()
         test_7_master_key()
+        test_8_settings()
         
     finally:
         if proc:

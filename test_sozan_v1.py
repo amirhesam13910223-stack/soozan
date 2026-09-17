@@ -547,16 +547,29 @@ def test_8_settings():
 
     # ── پاک کردن ban قبل از login ──
     print("  [log] clear-ban...")
-    s.get(f"{BASE}/test/clear-ban")
+    _rb = s.get(f"{BASE}/test/clear-ban")
+    print(f"  [log]   clear-ban status={_rb.status_code}, body={_rb.text[:20]}")
     
     # ── ورود با رمز جدید ──
     print("  [log] login با رمز جدید...")
     s2 = requests.Session()
     r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
+    # اگر rate limit خورد، clear-ban کن و دوباره تلاش کن
+    if r.status_code == 200 and "تلاش بیش از حد" in r.text:
+        print("  [log]   rate limit! clear-ban و retry...")
+        _cb = s2.get(f"{BASE}/test/clear-ban")
+        print(f"  [log]   clear-ban status={_cb.status_code}")
+        if _cb.status_code == 200:
+            s2 = requests.Session()
+            r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
+            print(f"  [log]   retry login: status={r.status_code}, Location={r.headers.get('Location')}")
     print(f"  [log]   login status={r.status_code}, Location={r.headers.get('Location')}")
     if r.status_code == 200:
         err = re.search(r'badge-bad[^>]*>([^<]+)<', r.text)
         print(f"  [log]   error message: {err.group(1) if err else 'none'}")
+        print(f"  [log]   'تلاش بیش از حد' in page: {'تلاش بیش از حد' in r.text}")
+        print(f"  [log]   'اشتباه' in page: {'اشتباه' in r.text}")
+        print(f"  [log]   body snippet: {r.text[r.text.find('badge-bad'):r.text.find('badge-bad')+120] if 'badge-bad' in r.text else r.text[:200]}")
         bad(f"login 200 (failed): {err.group(1) if err else 'unknown'}")
     elif r.status_code == 302 and "/login/phone" in r.headers.get("Location", ""):
         rp = s2.get(f"{BASE}/login/phone")

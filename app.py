@@ -518,6 +518,19 @@ def index():
     return redirect("/login")
 
 
+
+# ─── تست: پاک کردن ban (فقط DEV_MODE) ───
+@app.route("/test/clear-ban")
+def test_clear_ban():
+    import os as _os
+    if _os.environ.get("SOOZAN_DEV_MODE", "") not in ("1", "true", "yes"):
+        return "forbidden", 403
+    from core import Security
+    for _attr in ("_rate_buckets", "_violation_count"):
+        if hasattr(Security, _attr):
+            getattr(Security, _attr).clear()
+    return "ok"
+
 if __name__ == "__main__":
     if DEV_MODE:
         print("!" * 56)

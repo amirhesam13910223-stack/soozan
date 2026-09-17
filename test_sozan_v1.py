@@ -381,7 +381,6 @@ def test_6_security():
 # بخش ۷: کلید ارشد (بدون تداخل)
 # ═══════════════════════════════════════════════════════════
 def test_7_master_key():
-        test_8_settings()
     section("۷. کلید ارشد و ساختار فایل")
     
     key_path = Path("data/.master.key")
@@ -463,8 +462,6 @@ def main():
         print(f"⚠️  {FAIL} تست شکست خورد")
         return 1
 
-if __name__ == "__main__":
-    sys.exit(main())
 
 
 def test_8_settings():
@@ -559,3 +556,7 @@ def test_8_settings():
         ok("حساب حذف شد (ورود دوباره ممکن نیست)")
     else:
         bad("حذف حساب کار نکرد")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

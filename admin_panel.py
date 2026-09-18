@@ -12,6 +12,13 @@
 """
 from __future__ import annotations
 
+import hmac as _hmac
+
+def _otp_eq(a: str, b: str) -> bool:
+    """مقایسه constant-time کد OTP"""
+    return _hmac.compare_digest((a or "").encode(), (b or "").encode())
+
+
 import hmac
 import hashlib
 import os
@@ -136,6 +143,24 @@ def manage_enter():
         audit("MANAGE_ENTER_RATE_LIMITED", ip, level="WARN")
         return jsonify(ok=False, error="تلاش بیش از حد. چند دقیقه صبر کنید."), 429
     
+    if request.form.get("resend") and session.get("manage_otp"):
+        import secrets as _sec2, time as _t2, os as _os2
+        from pathlib import Path as _P2
+        from ui import render as _render2
+        pend = session["manage_otp"]
+        code2 = f"{_sec2.randbelow(1000000):06d}"
+        pend["code"] = code2
+        pend["exp"] = _t2.time() + 120
+        pend["tries"] = 0
+        session["manage_otp"] = pend
+        phone2 = ""
+        with get_db() as conn2:
+            ow2 = conn2.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (pend["file_id"],)).fetchone()
+        if ow2 and ow2["phone"]:
+            phone2 = ow2["phone"][:4] + "***" + ow2["phone"][-2:]
+        DEV2 = _os2.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+        tpl2 = (_P2(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
+        return _render2(tpl2, demo_code=code2 if DEV2 else None, phone=phone2, error=None)
     admin_code = (request.form.get("admin_code") or "").strip()
     if not admin_code:
         audit("MANAGE_ENTER_EMPTY", ip, level="INFO")
@@ -213,7 +238,7 @@ def manage_otp_verify():
         audit("MANAGE_OTP_EXPIRED", ip, level="WARN")
         return _page("کد منقضی شد؛ دوباره کد مدیریت را وارد کن."), 401
     code = (request.form.get("code") or "").strip()
-    if code != pend["code"]:
+    if not _otp_eq(code, pend["code"]):
         pend["tries"] = pend.get("tries", 0) + 1
         session["manage_otp"] = pend
         if pend["tries"] >= 4:

@@ -1,6 +1,6 @@
 <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0">
   <span id="otp-timer" class="badge badge-warn" style="font-family:var(--mono);direction:ltr;display:inline-block;padding:7px 12px">02:00</span>
-  <form method="post" action="{{ resend_route }}" style="margin:0">
+  <form method="post" action="{{ request.path }}" style="margin:0"><input type="hidden" name="resend" value="1">
     <button type="submit" class="btn btn-ghost" style="padding:7px 14px;font-size:12.5px">🔄 ارسال مجدد</button>
   </form>
 </div>

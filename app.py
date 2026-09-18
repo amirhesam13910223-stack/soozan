@@ -1,3 +1,10 @@
+
+import hmac as _hmac
+
+def _otp_eq(a: str, b: str) -> bool:
+    """مقایسه constant-time کد OTP"""
+    return _hmac.compare_digest((a or "").encode(), (b or "").encode())
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -283,7 +290,7 @@ def settings_otp_verify():
         session.pop("set_otp", None)
         session["demo_sms"] = "❌ تلاش بیش از حد؛ کد باطل شد"
         return redirect("/settings")
-    if code != pend.get("code"):
+    if not _otp_eq(code, pend.get("code", "")):
         pend["tries"] = pend.get("tries", 0) + 1
         session["set_otp"] = pend
         return _set_render("settings_otp.html", demo_code=pend["code"], desc=pend["desc"],

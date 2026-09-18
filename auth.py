@@ -1,3 +1,10 @@
+
+import hmac as _hmac
+
+def _otp_eq(a: str, b: str) -> bool:
+    """مقایسه constant-time کد OTP"""
+    return _hmac.compare_digest((a or "").encode(), (b or "").encode())
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -140,7 +147,7 @@ def register():
             if pend.get("tries", 0) >= 4:
                 session.pop("reg_pending", None)
                 return render(_read("auth_register.html"), error="تلاش بیش از حد؛ از ابتدا ثبت‌نام کنید.")
-            if code != pend.get("code"):
+            if not _otp_eq(code, pend.get("code", "")):
                 pend["tries"] = pend.get("tries", 0) + 1
                 session["reg_pending"] = pend
                 return render(_read("auth_verify.html"), demo_code=pend["code"],
@@ -201,7 +208,7 @@ def login_phone():
         if pend.get("tries", 0) >= 4:
             session.pop("login_pending", None)
             return render(_read("auth.html"), mode="login", error="تلاش بیش از حد؛ دوباره وارد شوید.")
-        if code != pend.get("code"):
+        if not _otp_eq(code, pend.get("code", "")):
             pend["tries"] = pend.get("tries", 0) + 1
             session["login_pending"] = pend
             return render(_read("auth_otp.html"), demo_code=pend["code"],

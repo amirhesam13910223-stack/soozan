@@ -255,6 +255,10 @@ html,body{overflow-x:hidden;max-width:100%}
 .wrap,.card,.field{overflow-wrap:break-word;word-wrap:break-word}
 .badge{max-width:100%}
 p,small,label,.label{overflow-wrap:break-word}
+.ux-bottom{position:fixed;bottom:0;left:0;right:0;z-index:70;display:flex;justify-content:center;gap:10px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:#0d1428f5;border-top:1px solid var(--line);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 -8px 30px #00000059}.ux-fab{position:fixed;bottom:calc(78px + env(safe-area-inset-bottom,0px));inset-inline-end:18px;z-index:70;width:56px;height:56px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:26px;font-weight:700;cursor:pointer;box-shadow:0 8px 26px #ff6b3566;display:grid;place-items:center;transition:var(--transition);animation:ux-pulse 2.6s infinite;text-decoration:none}
+.ux-fab:hover{transform:scale(1.06)}
+.ux-fab:active{transform:scale(.94)}
+@media(max-width:480px){.ux-tab{padding:10px 12px;font-size:12.5px}.ux-fab{bottom:calc(74px + env(safe-area-inset-bottom,0px));inset-inline-end:14px}}
 </style>
 {% block head %}{% endblock %}
 </head>

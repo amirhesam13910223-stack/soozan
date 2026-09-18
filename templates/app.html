@@ -54,7 +54,7 @@
   <a class="ux-item {{ 'active' if request.path == '/wizard' }}" href="/wizard"><span class="ic">➕</span> ساخت فایل جدید</a>
   <a class="ux-item {{ 'active' if request.path == '/profile' }}" href="/profile"><span class="ic">👤</span> پروفایل</a>
   <a class="ux-item {{ 'active' if request.path == '/settings' }}" href="/settings"><span class="ic">⚙️</span> تنظیمات</a>
-{% if request.remote_addr in ("127.0.0.1", "::1") %}  <a class="ux-item {{ 'active' if request.path.startswith('/admin') else '' }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>{% endif %}
+{% if request.remote_addr in ("127.0.0.1", "::1") %}  <a class="ux-item {{ 'active' if request.path.startswith('/manage') else '' }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>{% endif %}
   <div class="ux-sep"></div>
   <a class="ux-item danger" href="/logout"><span class="ic">🚪</span> خروج</a>
 </aside>

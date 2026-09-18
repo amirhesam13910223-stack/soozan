@@ -1,7 +1,7 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
 {% block title %}سوزان — مدیریت {{ file_info.filename }}{% endblock %}
 
-{% block body %}
+{% block app_content %}
 <div id="mgmt-live">
 <nav class="nav">
   <div class="brand"><span class="logo">🔐</span> پنل مدیریت</div>
@@ -385,7 +385,17 @@ async function exportData(type) {
       .then(function(){ refresh(); })
       .catch(function(){});
   });
-  window.addEventListener("pagehide", function(){ try { navigator.sendBeacon("/manage/leave"); } catch(e){} });
+  function leaveNow(){
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/manage/leave", false);
+      x.send();
+    } catch(e) {
+      try { navigator.sendBeacon("/manage/leave"); } catch(e2){}
+    }
+  }
+  window.addEventListener("pagehide", leaveNow);
+  window.addEventListener("beforeunload", leaveNow);
 })();
 </script>
 

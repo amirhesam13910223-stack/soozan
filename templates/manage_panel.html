@@ -1,12 +1,11 @@
-{% extends "app.html" %}
+{% extends "base.html" %}
 {% block title %}سوزان — مدیریت {{ file_info.filename }}{% endblock %}
 
 {% block app_content %}
+<div id="mgmt-live">
 <nav class="nav">
   <div class="brand"><span class="logo">🔐</span> پنل مدیریت</div>
   <div class="nav-links">
-    <a href="/dashboard">داشبورد</a>
-    <a href="/i">آیدی جدید</a>
   </div>
 </nav>
 
@@ -364,7 +363,30 @@ async function exportData(type) {
 }
 
 </script>
+</div>
 <script nonce="{{ nonce }}">
-window.addEventListener("pagehide", function(){ try { navigator.sendBeacon("/manage/leave"); } catch(e){} });
+(function(){
+  var live = document.getElementById("mgmt-live");
+  if(!live) return;
+  function refresh(){
+    fetch(location.href, {credentials:"same-origin"}).then(function(r){ return r.ok ? r.text() : null; }).then(function(html){
+      if(!html) return;
+      var doc = new DOMParser().parseFromString(html, "text/html");
+      var nl = doc.getElementById("mgmt-live");
+      if(nl && nl.innerHTML !== live.innerHTML){ live.innerHTML = nl.innerHTML; }
+    }).catch(function(){});
+  }
+  setInterval(refresh, 4000);
+  document.addEventListener("submit", function(ev){
+    var f = ev.target;
+    if(!f || !f.action || f.action.indexOf("/api/manage/") === -1) return;
+    ev.preventDefault();
+    fetch(f.action, {method:"POST", body:new FormData(f), credentials:"same-origin"})
+      .then(function(){ refresh(); })
+      .catch(function(){});
+  });
+  window.addEventListener("pagehide", function(){ try { navigator.sendBeacon("/manage/leave"); } catch(e){} });
+})();
 </script>
+
 {% endblock %}

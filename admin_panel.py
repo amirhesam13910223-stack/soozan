@@ -272,6 +272,7 @@ def manage_otp_verify():
     session.pop("manage_otp", None)
     session.pop("mgmt_active", None)
     session.pop("mgmt_consumed", None)
+    session.pop("mgmt_rendered", None)
     token = issue_mgmt_token(pend["file_id"])
     audit("MANAGE_ENTER_OK", ip, f"uid={pend['uid'][:12]}… (با کد پیامکی)")
     return redirect(f"/manage/panel/{token}")
@@ -326,6 +327,10 @@ def manage_panel(mgmt_token):
     file_id = info["file_id"]
     csrf = info["csrf"]
     confirm_code = f"{secrets.randbelow(10000):04d}"
+    is_poll = request.headers.get("X-Mgmt-Poll") == "1"
+    if session.get("mgmt_rendered") == mgmt_token and not is_poll:
+        return redirect(url_for("admin_panel.manage_enter_page"))
+    session["mgmt_rendered"] = mgmt_token
     if session.get("mgmt_consumed") == mgmt_token:
         return redirect(url_for("admin_panel.manage_enter_page"))
     if session.get("mgmt_active") not in (None, mgmt_token):
@@ -478,6 +483,43 @@ def mgmt_lock(mgmt_token):
 
 @bp.post("/api/manage/<mgmt_token>/burn")
 def mgmt_burn(mgmt_token):
+    _mode = request.headers.get("X-Mgmt-Stepup", "")
+    if _mode in ("issue", "verify"):
+        import time as _tsu, secrets as _ssu, os as _osu
+        _tv = verify_mgmt_token(mgmt_token)
+        if not _tv:
+            return jsonify(ok=False, error="توکن نامعتبر"), 403
+        _fid = _tv.get("file_id")
+        if _mode == "issue":
+            _phone = ""
+            with get_db() as _csu:
+                _ow = _csu.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (_fid,)).fetchone()
+            if _ow and _ow["phone"]:
+                _phone = _ow["phone"]
+            if not _phone:
+                return jsonify(ok=False, error="شماره مالک یافت نشد"), 403
+            _code = f"{_ssu.randbelow(1000000):06d}"
+            session["mgmt_stepup"] = {"token": mgmt_token, "action": "burn", "code": _code, "exp": _tsu.time() + 120, "tries": 0}
+            audit("MGMT_STEPUP_SENT", client_ip(), f"action=burn")
+            _DEV = _osu.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+            return jsonify(ok=True, demo=_code if _DEV else None)
+        _st = session.get("mgmt_stepup")
+        if not _st or _st["token"] != mgmt_token or _st["action"] != "burn":
+            return jsonify(ok=False, error="اول کد تأیید را درخواست کن"), 403
+        if _tsu.time() > _st["exp"]:
+            session.pop("mgmt_stepup", None)
+            return jsonify(ok=False, error="کد منقضی شد؛ دوباره درخواست بده"), 401
+        _c = (request.form.get("code") or "").strip()
+        if not _otp_eq(_c, _st["code"]):
+            _st["tries"] = _st.get("tries", 0) + 1
+            if _st["tries"] >= 4:
+                session.pop("mgmt_stepup", None)
+                return jsonify(ok=False, error="تلاش بیش از حد؛ کد باطل شد"), 401
+            session["mgmt_stepup"] = _st
+            return jsonify(ok=False, error="کد صحیح نیست"), 401
+        session.pop("mgmt_stepup", None)
+    else:
+        return jsonify(ok=False, error="برای این عملیات تأیید پله‌ای لازم است"), 403
     ip = client_ip()
     if not Security.rate_check(ip, "manage_action"):
         return jsonify(ok=False, error="rate limit"), 429
@@ -512,6 +554,43 @@ def mgmt_burn(mgmt_token):
 
 @bp.post("/api/manage/<mgmt_token>/revoke")
 def mgmt_revoke(mgmt_token):
+    _mode = request.headers.get("X-Mgmt-Stepup", "")
+    if _mode in ("issue", "verify"):
+        import time as _tsu, secrets as _ssu, os as _osu
+        _tv = verify_mgmt_token(mgmt_token)
+        if not _tv:
+            return jsonify(ok=False, error="توکن نامعتبر"), 403
+        _fid = _tv.get("file_id")
+        if _mode == "issue":
+            _phone = ""
+            with get_db() as _csu:
+                _ow = _csu.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (_fid,)).fetchone()
+            if _ow and _ow["phone"]:
+                _phone = _ow["phone"]
+            if not _phone:
+                return jsonify(ok=False, error="شماره مالک یافت نشد"), 403
+            _code = f"{_ssu.randbelow(1000000):06d}"
+            session["mgmt_stepup"] = {"token": mgmt_token, "action": "revoke", "code": _code, "exp": _tsu.time() + 120, "tries": 0}
+            audit("MGMT_STEPUP_SENT", client_ip(), f"action=revoke")
+            _DEV = _osu.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+            return jsonify(ok=True, demo=_code if _DEV else None)
+        _st = session.get("mgmt_stepup")
+        if not _st or _st["token"] != mgmt_token or _st["action"] != "revoke":
+            return jsonify(ok=False, error="اول کد تأیید را درخواست کن"), 403
+        if _tsu.time() > _st["exp"]:
+            session.pop("mgmt_stepup", None)
+            return jsonify(ok=False, error="کد منقضی شد؛ دوباره درخواست بده"), 401
+        _c = (request.form.get("code") or "").strip()
+        if not _otp_eq(_c, _st["code"]):
+            _st["tries"] = _st.get("tries", 0) + 1
+            if _st["tries"] >= 4:
+                session.pop("mgmt_stepup", None)
+                return jsonify(ok=False, error="تلاش بیش از حد؛ کد باطل شد"), 401
+            session["mgmt_stepup"] = _st
+            return jsonify(ok=False, error="کد صحیح نیست"), 401
+        session.pop("mgmt_stepup", None)
+    else:
+        return jsonify(ok=False, error="برای این عملیات تأیید پله‌ای لازم است"), 403
     ip = client_ip()
     if not Security.rate_check(ip, "manage_action"):
         return jsonify(ok=False, error="rate limit"), 429

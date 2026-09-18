@@ -3,7 +3,9 @@ import hmac as _hmac
 
 def _otp_eq(a: str, b: str) -> bool:
     """مقایسه constant-time کد OTP"""
-    return _hmac.compare_digest((a or "").encode(), (b or "").encode())
+    if not a or not b:
+        return False
+    return _hmac.compare_digest(a.encode(), b.encode())
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -271,6 +273,7 @@ def settings_otp_resend():
     """ارسال مجدد کد تنظیمات (کد جدید + تایمر جدید)"""
     from flask import session, redirect
     pend = session.get("set_otp")
+    if pend and pend.get("locked"): pend["tries"] = 4
     if not pend:
         return redirect("/settings")
     return _set_otp(pend["purpose"], pend["phone"], pend["desc"], new_phone=pend.get("new_phone"))

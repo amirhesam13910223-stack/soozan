@@ -364,4 +364,7 @@ async function exportData(type) {
 }
 
 </script>
+<script nonce="{{ nonce }}">
+window.addEventListener("pagehide", function(){ try { navigator.sendBeacon("/manage/leave"); } catch(e){} });
+</script>
 {% endblock %}

@@ -16,7 +16,9 @@ import hmac as _hmac
 
 def _otp_eq(a: str, b: str) -> bool:
     """مقایسه constant-time کد OTP"""
-    return _hmac.compare_digest((a or "").encode(), (b or "").encode())
+    if not a or not b:
+        return False
+    return _hmac.compare_digest(a.encode(), b.encode())
 
 
 import hmac
@@ -152,6 +154,7 @@ def manage_enter():
         pend["code"] = code2
         pend["exp"] = _t2.time() + 120
         pend["tries"] = 0
+        pend["locked"] = False
         session["manage_otp"] = pend
         phone2 = ""
         with get_db() as conn2:
@@ -160,7 +163,7 @@ def manage_enter():
             phone2 = ow2["phone"][:4] + "***" + ow2["phone"][-2:]
         DEV2 = _os2.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
         tpl2 = (_P2(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
-        return _render2(tpl2, demo_code=code2 if DEV2 else None, phone=phone2, error=None)
+        return _render2(tpl2, demo_code=code2, phone=phone2, error=None)
     admin_code = (request.form.get("admin_code") or "").strip()
     if not admin_code:
         audit("MANAGE_ENTER_EMPTY", ip, level="INFO")
@@ -213,7 +216,7 @@ def manage_enter():
     audit("MANAGE_OTP_SENT", ip, f"uid={uid[:12]}… status={status}")
     masked = phone[:4] + "***" + phone[-2:]
     tpl = (_P(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
-    return _render(tpl, demo_code=code if DEV else None, phone=masked, error=None)
+    return _render(tpl, demo_code=code, phone=masked, error=None)
 
 
 
@@ -226,11 +229,29 @@ def manage_otp_verify():
     from ui import render as _render
     ip = client_ip()
     pend = session.get("manage_otp")
+    if request.form.get("resend") and pend:
+        import secrets as _s3, time as _t3, os as _o3
+        from pathlib import Path as _P3
+        from ui import render as _r3
+        pend["code"] = f"{_s3.randbelow(1000000):06d}"
+        pend["exp"] = _t3.time() + 120
+        pend["tries"] = 0
+        pend["locked"] = False
+        session["manage_otp"] = pend
+        ph3 = ""
+        with get_db() as c3:
+            ow3 = c3.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (pend["file_id"],)).fetchone()
+        if ow3 and ow3["phone"]:
+            ph3 = ow3["phone"][:4] + "***" + ow3["phone"][-2:]
+        tp3 = (_P3(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
+        return _r3(tp3, demo_code=pend["code"], phone=ph3, error=None)
 
     def _page(err):
         tpl = (_P(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
         return _render(tpl, error=err, demo_code=None, phone="")
 
+    if pend and pend.get("locked"):
+        return _page("کد باطل شده است؛ دکمه ارسال مجدد را بزنید."), 401
     if not pend:
         return redirect(url_for("admin_panel.manage_enter_page"))
     if _t.time() > pend["exp"]:
@@ -242,7 +263,7 @@ def manage_otp_verify():
         pend["tries"] = pend.get("tries", 0) + 1
         session["manage_otp"] = pend
         if pend["tries"] >= 4:
-            session.pop("manage_otp", None)
+            pend["locked"] = True; pend["code"] = ""; session["manage_otp"] = pend
             Security.violation(ip, "manage_otp_wrong")
             audit("MANAGE_OTP_LOCKED", ip, level="WARN")
             return _page("تلاش بیش از حد؛ کد باطل شد."), 401
@@ -268,6 +289,7 @@ def manage_otp_resend():
     pend["code"] = code
     pend["exp"] = _t.time() + 120
     pend["tries"] = 0
+    pend["locked"] = False
     session["manage_otp"] = pend
     phone = ""
     with get_db() as conn:
@@ -276,7 +298,17 @@ def manage_otp_resend():
         phone = ow["phone"][:4] + "***" + ow["phone"][-2:]
     DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
     tpl = (_P(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
-    return _render(tpl, demo_code=code if DEV else None, phone=phone, error=None)
+    return _render(tpl, demo_code=code, phone=phone, error=None)
+
+
+
+@bp.post("/manage/leave")
+def manage_leave():
+    """خروج از پنل: توکن مصرف‌شده می‌شود"""
+    act = session.pop("mgmt_active", None)
+    if act:
+        session["mgmt_consumed"] = act
+    return "ok"
 
 # ─── رندر پنل مدیریت ─────────────────────────────
 
@@ -292,6 +324,11 @@ def manage_panel(mgmt_token):
     file_id = info["file_id"]
     csrf = info["csrf"]
     confirm_code = f"{secrets.randbelow(10000):04d}"
+    if session.get("mgmt_consumed") == mgmt_token:
+        return redirect(url_for("admin_panel.manage_enter_page"))
+    if session.get("mgmt_active") not in (None, mgmt_token):
+        return redirect(url_for("admin_panel.manage_enter_page"))
+    session["mgmt_active"] = mgmt_token
     session['mgmt_confirm_code'] = confirm_code
     
     with get_db() as conn:

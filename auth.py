@@ -3,7 +3,9 @@ import hmac as _hmac
 
 def _otp_eq(a: str, b: str) -> bool:
     """مقایسه constant-time کد OTP"""
-    return _hmac.compare_digest((a or "").encode(), (b or "").encode())
+    if not a or not b:
+        return False
+    return _hmac.compare_digest(a.encode(), b.encode())
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -99,11 +101,13 @@ def register_resend():
     """ارسال مجدد کد ثبت‌نام"""
     import secrets, time
     pend = session.get("reg_pending")
+    if pend and pend.get("locked"): pend["tries"] = 4
     if not pend:
         return redirect("/register")
     pend["code"] = f"{secrets.randbelow(1000000):06d}"
     pend["exp"] = time.time() + 120
     pend["tries"] = 0
+    pend["locked"] = False
     session["reg_pending"] = pend
     return redirect("/register")
 
@@ -113,11 +117,13 @@ def login_phone_resend():
     """ارسال مجدد کد ورود"""
     import secrets, time
     pend = session.get("login_pending")
+    if pend and pend.get("locked"): pend["tries"] = 4
     if not pend:
         return redirect("/login")
     pend["code"] = f"{secrets.randbelow(1000000):06d}"
     pend["exp"] = time.time() + 120
     pend["tries"] = 0
+    pend["locked"] = False
     session["login_pending"] = pend
     return redirect("/login/phone")
 
@@ -145,7 +151,7 @@ def register():
                 session.pop("reg_pending", None)
                 return render(_read("auth_register.html"), error="جلسه منقضی شد؛ دوباره شروع کنید.")
             if pend.get("tries", 0) >= 4:
-                session.pop("reg_pending", None)
+                pend["locked"] = True; pend["code"] = ""; session["reg_pending"] = pend
                 return render(_read("auth_register.html"), error="تلاش بیش از حد؛ از ابتدا ثبت‌نام کنید.")
             if not _otp_eq(code, pend.get("code", "")):
                 pend["tries"] = pend.get("tries", 0) + 1
@@ -206,7 +212,7 @@ def login_phone():
         ip = client_ip()
         code = request.form.get("code", "").strip()
         if pend.get("tries", 0) >= 4:
-            session.pop("login_pending", None)
+            pend["locked"] = True; pend["code"] = ""; session["login_pending"] = pend
             return render(_read("auth.html"), mode="login", error="تلاش بیش از حد؛ دوباره وارد شوید.")
         if not _otp_eq(code, pend.get("code", "")):
             pend["tries"] = pend.get("tries", 0) + 1

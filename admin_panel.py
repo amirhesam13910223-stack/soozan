@@ -270,6 +270,8 @@ def manage_otp_verify():
         audit("MANAGE_OTP_WRONG", ip, level="WARN")
         return _page("کد صحیح نیست"), 401
     session.pop("manage_otp", None)
+    session.pop("mgmt_active", None)
+    session.pop("mgmt_consumed", None)
     token = issue_mgmt_token(pend["file_id"])
     audit("MANAGE_ENTER_OK", ip, f"uid={pend['uid'][:12]}… (با کد پیامکی)")
     return redirect(f"/manage/panel/{token}")

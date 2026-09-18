@@ -228,6 +228,31 @@ def manage_otp_verify():
     audit("MANAGE_ENTER_OK", ip, f"uid={pend['uid'][:12]}… (با کد پیامکی)")
     return redirect(f"/manage/panel/{token}")
 
+
+
+@bp.post("/manage/otp/resend")
+def manage_otp_resend():
+    """ارسال مجدد کد تأیید مالک"""
+    import secrets as _sec, time as _t, os as _os
+    from pathlib import Path as _P
+    from ui import render as _render
+    pend = session.get("manage_otp")
+    if not pend:
+        return redirect(url_for("admin_panel.manage_enter_page"))
+    code = f"{_sec.randbelow(1000000):06d}"
+    pend["code"] = code
+    pend["exp"] = _t.time() + 120
+    pend["tries"] = 0
+    session["manage_otp"] = pend
+    phone = ""
+    with get_db() as conn:
+        ow = conn.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (pend["file_id"],)).fetchone()
+    if ow and ow["phone"]:
+        phone = ow["phone"][:4] + "***" + ow["phone"][-2:]
+    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+    tpl = (_P(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
+    return _render(tpl, demo_code=code if DEV else None, phone=phone, error=None)
+
 # ─── رندر پنل مدیریت ─────────────────────────────
 
 

@@ -12,6 +12,7 @@
     <div class="badge badge-warn" style="display:block;text-align:center;margin-bottom:14px;padding:10px">
       🧪 حالت دمو: کد = <b style="letter-spacing:4px">{{ demo_code }}</b>
     </div>
+    {% set resend_route = "/settings/otp/resend" %}{% include "otp_timer.html" %}
     <form method="post" action="/settings/otp/verify">
       <div class="field"><input class="input" name="code" inputmode="numeric" maxlength="6" required placeholder="------"
          style="direction:ltr;text-align:center;letter-spacing:6px;font-family:var(--mono)"></div>

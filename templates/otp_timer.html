@@ -1,0 +1,19 @@
+<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0">
+  <span id="otp-timer" class="badge badge-warn" style="font-family:var(--mono);direction:ltr;display:inline-block;padding:7px 12px">02:00</span>
+  <form method="post" action="{{ resend_route }}" style="margin:0">
+    <button type="submit" class="btn btn-ghost" style="padding:7px 14px;font-size:12.5px">🔄 ارسال مجدد</button>
+  </form>
+</div>
+<script nonce="{{ nonce }}">
+(function(){
+  var left = 120;
+  var el = document.getElementById("otp-timer");
+  function tick(){
+    if(left <= 0){ if(el){ el.style.display = "none"; } return; }
+    if(el){ el.style.display = ""; el.textContent = String(Math.floor(left/60)).padStart(2,"0") + ":" + String(left%60).padStart(2,"0"); }
+    left -= 1;
+    setTimeout(tick, 1000);
+  }
+  tick();
+})();
+</script>

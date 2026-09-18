@@ -257,6 +257,17 @@ def settings_password_start():
         return redirect("/settings")
     return _set_otp("pw_change", u["phone"], "تغییر رمز عبور — تأیید با کد")
 
+
+
+@app.route("/settings/otp/resend", methods=["POST"])
+def settings_otp_resend():
+    """ارسال مجدد کد تنظیمات (کد جدید + تایمر جدید)"""
+    from flask import session, redirect
+    pend = session.get("set_otp")
+    if not pend:
+        return redirect("/settings")
+    return _set_otp(pend["purpose"], pend["phone"], pend["desc"], new_phone=pend.get("new_phone"))
+
 @app.route("/settings/otp/verify", methods=["POST"])
 def settings_otp_verify():
     import time as _t

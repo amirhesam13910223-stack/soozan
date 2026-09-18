@@ -15,6 +15,7 @@
   {% endif %}
   {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
   <div class="card pad">
+    {% set resend_route = "/manage/otp/resend" %}{% include "otp_timer.html" %}
     <form method="post" action="/manage/otp">
       <div class="field"><label class="label" for="code">کد ۶ رقمی پیامکی</label>
         <input class="input" id="code" name="code" inputmode="numeric" maxlength="6" placeholder="------" required

@@ -86,6 +86,35 @@ def login():
     return render(_read("auth.html"), mode="login")
 
 
+
+@bp.post("/register/resend")
+def register_resend():
+    """ارسال مجدد کد ثبت‌نام"""
+    import secrets, time
+    pend = session.get("reg_pending")
+    if not pend:
+        return redirect("/register")
+    pend["code"] = f"{secrets.randbelow(1000000):06d}"
+    pend["exp"] = time.time() + 120
+    pend["tries"] = 0
+    session["reg_pending"] = pend
+    return redirect("/register")
+
+
+@bp.post("/login/phone/resend")
+def login_phone_resend():
+    """ارسال مجدد کد ورود"""
+    import secrets, time
+    pend = session.get("login_pending")
+    if not pend:
+        return redirect("/login")
+    pend["code"] = f"{secrets.randbelow(1000000):06d}"
+    pend["exp"] = time.time() + 120
+    pend["tries"] = 0
+    session["login_pending"] = pend
+    return redirect("/login/phone")
+
+
 @bp.route("/register", methods=["GET", "POST"])
 def register():
     """ثبت‌نام دومرحله‌ای: اطلاعات → کد تأیید (دمو) → ساخت حساب"""

@@ -17,6 +17,7 @@
       <div class="badge badge-warn" style="display:block;text-align:center;margin-bottom:14px;padding:10px">
         🧪 حالت دمو (پیامک در فاز بعد): کد = <b style="letter-spacing:4px">{{ demo_code }}</b>
       </div>
+      {% set resend_route = "/register/resend" %}{% include "otp_timer.html" %}
       <form method="post" action="/register">
         <input type="hidden" name="step" value="2">
         <div class="field"><label class="label" for="code">کد ۶ رقمی</label>

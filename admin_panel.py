@@ -171,6 +171,11 @@ def manage_enter():
     from ui import render as _render
     import os as _os
     DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+    try:
+        from core import DEV_MODE as _dm
+        DEV = DEV or bool(_dm)
+    except Exception:
+        pass
     if not phone:
         audit("MANAGE_ENTER_NOPHONE", ip, level="WARN")
         tpl = (_P(__file__).parent / "templates" / "manage_enter.html").read_text(encoding="utf-8")

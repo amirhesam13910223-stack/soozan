@@ -7,7 +7,12 @@
     <h1 style="font-size:22px;font-weight:700;margin-top:8px">تأیید دومرحله‌ای</h1>
     <p style="color:var(--dim);font-size:13px;margin-top:4px">کد مدیریت درست بود ✔<br>حالا کدی که به شماره مالک فایل <b style="direction:ltr;display:inline-block">{{ phone }}</b> ارسال شد را وارد کن</p>
   </div>
-  {% if demo_code %}<div class="badge badge-info" style="display:block;padding:10px;margin-bottom:14px;white-space:normal;line-height:1.8" data-demo-code="{{ demo_code }}">📨 پیامک دمو: کد شما <b style="direction:ltr;display:inline-block;font-family:var(--mono)">{{ demo_code }}</b> · ۲ دقیقه اعتبار · ۴ بار تلاش</div>{% endif %}
+  {% if demo_code %}
+  <div style="border:1px dashed var(--info);border-radius:12px;padding:14px;margin-bottom:16px;background:#60a5fa0d;text-align:center" data-demo-code="{{ demo_code }}">
+    <p style="font-size:11.5px;color:var(--info);margin:0 0 6px">📨 پیامک دمو — کد تأیید مالک (۲ دقیقه / ۴ بار تلاش):</p>
+    <b style="direction:ltr;display:inline-block;font-family:var(--mono);font-size:26px;letter-spacing:8px;color:var(--info)">{{ demo_code }}</b>
+  </div>
+  {% endif %}
   {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
   <div class="card pad">
     <form method="post" action="/manage/otp">

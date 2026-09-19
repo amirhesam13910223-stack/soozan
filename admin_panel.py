@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Optional
 from flask import Blueprint, request, redirect, url_for, session, jsonify
-from core import get_db, audit, client_ip, Security
+from core import get_db, audit, client_ip, Security, real_status
 from ui import render as _render
 
 bp = Blueprint("admin_panel", __name__)
@@ -80,28 +80,6 @@ def _to_jalali(ts) -> str:
     return f"{jy:04d}/{jm:02d}/{jd:02d}  {d.hour:02d}:{d.minute:02d}"
 
 
-
-def _real_status(rd, stg, disk_exists):
-    """وضعیت واقعی فایل بر اساس شرایط واقعی"""
-    import time as _tt
-    vc = rd.get("views_count") or 0
-    mv = int(stg.get("max_views") or 0)
-    now = _tt.time()
-    if rd.get("status") == "burned":
-        return "burned", "حذف شده (دستی) 🔥", "bad"
-    if not disk_exists:
-        return "burned", "حذف شده (دستی) 🔥", "bad"
-    if rd.get("status") in ("locked", "paused"):
-        return "locked", "قفل شده (موقت) 🔒", "warn"
-
-    if rd.get("expires_at") and now > float(rd["expires_at"]):
-        return "expired", "منقضی شده ⏳", "bad"
-    if mv and vc >= mv:
-        return "done", "مشاهده شده ✅", "ok"
-    vs = rd.get("view_started_at")
-    if vs and (now - float(vs)) < 3600:
-        return "viewing", "در حال مشاهده 👁", "ok"
-    return "active", "فعال 🟢", "ok"
 
 
 def _otp_eq(a: str, b: str) -> bool:
@@ -288,7 +266,7 @@ def manage_panel(mgmt_token):
     has_pw = bool(pw_val)
     pw_is_hash = bool(pw_val) and re.fullmatch(r"[0-9a-fA-F]{32,128}", str(pw_val)) is not None
     lock_n = next((int(stg[k]) for k in ('lock_after_wrong', 'max_wrong', 'wrong_limit', 'lock_after', 'lock_tries', 'max_wrong_pins', 'lock_after_tries') if stg.get(k)), 0)
-    st_real, st_fa, st_group = _real_status(rd, stg, disk_exists)
+    st_real, st_badge, st_group, st_detail = real_status(rd, stg, disk_exists)
     dev_fa = "، ".join(((d["device"] or "نامشخص")[:24] + " ×" + str(d["c"])) for d in devs) or "—"
     file_info = {
         "uid": rd["uid"],
@@ -297,7 +275,8 @@ def manage_panel(mgmt_token):
         "status": rd["status"],
         "status_real": st_real,
         "status_group": st_group,
-        "status_fa": st_fa,
+        "status_fa": st_badge,
+        "status_detail": st_detail,
         "mime": rd.get("mime") or "—",
         "size_kb": round((rd.get("size_bytes") or 0) / 1024, 1),
         "views": vc,
@@ -320,7 +299,9 @@ def manage_panel(mgmt_token):
     }
     tpl = (Path(__file__).parent / "templates" / "manage_panel.html").read_text(encoding="utf-8")
     return _render(tpl, file_info=file_info, mgmt_token=mgmt_token,
-                   confirm_code=info["csrf"])
+                   confirm_code=info["csrf"],
+                   copy_result=session.pop("stepup_result", None),
+                   stepup_error=session.pop("stepup_error", None))
 
 
 # ════════════════════════════════════════════════════════════════
@@ -420,6 +401,94 @@ def mgmt_action(mgmt_token, action):
         return deny
     info = verify_mgmt_token(mgmt_token)
     return _run_action(action, info["file_id"])
+
+
+@bp.route("/manage/stepup/<mgmt_token>/<action>", methods=["GET", "POST"])
+def manage_stepup(mgmt_token, action):
+    """صفحه کد ۶ رقمی برای عملیات‌ها — دقیقاً همان صفحه ورود پنل"""
+    if action not in ("pause", "resume", "burn", "copy_id", "copy_pass"):
+        return redirect(url_for("admin_panel.manage_enter"))
+    info = verify_mgmt_token(mgmt_token)
+    if not info:
+        return redirect(url_for("admin_panel.manage_enter"))
+    fid = info["file_id"]
+    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or client_ip() in ("127.0.0.1", "::1", "localhost")
+    tpl = (Path(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
+    DESCS = {
+        "pause": "⏸ درخواست مکث موقت فایل",
+        "resume": "▶ درخواست ادامه دسترسی فایل",
+        "burn": "🔥 درخواست سوزاندن کامل فایل (غیرقابل بازگشت)",
+        "copy_id": "📋 درخواست کپی مجدد آیدی فایل",
+        "copy_pass": "🔑 درخواست کپی رمز عبور فایل",
+    }
+    kw = {"otp_action": request.path, "otp_desc": DESCS[action], "otp_submit": "اجرای عملیات ←"}
+
+    def page(err=None, demo=None, phone="", sec=0, code=None):
+        from ui import render as _r2
+        if code is None:
+            code = 401 if err else 200
+        return _r2(tpl, demo_code=demo, phone=phone, error=err, seconds_left=sec, **kw), code
+
+    phone_full = ""
+    with get_db() as c:
+        ow = c.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (fid,)).fetchone()
+    if ow and ow["phone"]:
+        phone_full = ow["phone"]
+    masked = phone_full[:4] + "***" + phone_full[-2:] if phone_full else ""
+
+    if request.method == "GET":
+        if not phone_full:
+            return page("شماره مالک یافت نشد", sec=0)
+        code = f"{_sec.randbelow(1000000):06d}"
+        session["mgmt_stepup"] = {"token": mgmt_token, "action": action, "code": code, "exp": _t.time() + 120, "tries": 0}
+        audit("MGMT_STEPUP_SENT", client_ip(), f"action={action}")
+        return page(None, demo=code if DEV else None, phone=masked, sec=120)
+
+    st = session.get("mgmt_stepup")
+    if not st or st["token"] != mgmt_token or st["action"] != action:
+        return redirect(request.path)
+    remaining = max(0, int(st["exp"] - _t.time()))
+    if request.form.get("resend"):
+        code = f"{_sec.randbelow(1000000):06d}"
+        st.update(code=code, exp=_t.time() + 120, tries=0)
+        session["mgmt_stepup"] = st
+        audit("MGMT_STEPUP_RESENT", client_ip(), f"action={action}")
+        return page(None, demo=code if DEV else None, phone=masked, sec=120)
+    if remaining <= 0:
+        session.pop("mgmt_stepup", None)
+        return page("کد منقضی شد؛ دوباره درخواست بده.", sec=0)
+    if st.get("locked"):
+        return page("کد باطل شده است؛ ارسال مجدد بزنید.", sec=0)
+    code = (request.form.get("code") or "").strip()
+    if not _otp_eq(code, st["code"]):
+        st["tries"] = st.get("tries", 0) + 1
+        if st["tries"] >= 4:
+            st["locked"] = True
+            st["code"] = ""
+            session["mgmt_stepup"] = st
+            audit("MGMT_STEPUP_LOCKED", client_ip(), level="WARN") if "level" in audit.__code__.co_varnames else audit("MGMT_STEPUP_LOCKED", client_ip())
+            return page("تلاش بیش از حد؛ کد باطل شد. ارسال مجدد بزنید.", sec=0)
+        session["mgmt_stepup"] = st
+        return page("کد صحیح نیست", demo=st["code"] if DEV else None, phone=masked, sec=remaining)
+    session.pop("mgmt_stepup", None)
+    rv = _run_action(action, fid)
+    err = None
+    if isinstance(rv, tuple):
+        err = (rv[0].get_json() or {}).get("error")
+    else:
+        data = rv.get_json() or {}
+        if not data.get("ok"):
+            err = data.get("error")
+        elif action == "copy_id":
+            session["stepup_result"] = {"label": "📋 آیدی فایل:", "value": data.get("uid", "")}
+        elif action == "copy_pass":
+            session["stepup_result"] = {"label": "🔑 رمز عبور فایل:", "value": data.get("pw", "")}
+        else:
+            session["stepup_result"] = {"label": "✅ عملیات انجام شد", "value": {"pause": "فایل موقتاً متوقف شد", "resume": "دسترسی فایل ادامه یافت", "burn": "فایل سوخته شد"}.get(action, "")}
+    if err:
+        session["stepup_error"] = err
+    return redirect(f"/manage/panel/{mgmt_token}")
+
 
 
 def register(app):

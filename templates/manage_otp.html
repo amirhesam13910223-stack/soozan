@@ -9,7 +9,7 @@
   <div class="ot-card">
     <div class="ot-icon">🛡️</div>
     <h1 class="ot-title">تأیید دومرحله‌ای</h1>
-    <p class="ot-sub">کد مدیریت معتبر بود ✔<br>کد ۶ رقمی ارسال‌شده به شماره <span class="ot-phone">{{ phone }}</span> را وارد کنید</p>
+    <p class="ot-sub">{{ otp_desc|default("کد مدیریت معتبر بود ✔") }}<br>کد ۶ رقمی ارسال‌شده به شماره <span class="ot-phone">{{ phone }}</span> را وارد کنید</p>
 
     {% if demo_code %}
     <div class="ot-demo">
@@ -25,15 +25,15 @@
 
     {% if error %}<div class="ot-alert">⚠️ {{ error }}</div>{% endif %}
 
-    <form method="post" action="/manage/otp" id="ot-form">
+    <form method="post" action="{{ otp_action|default('/manage/otp') }}" id="ot-form">
       <div class="ot-boxes" id="ot-boxes">
         {% for i in range(6) %}<input class="ot-box" type="text" inputmode="numeric" maxlength="1" data-idx="{{ i }}">{% endfor %}
       </div>
       <input type="hidden" name="code" id="ot-code">
-      <button class="ot-btn" type="submit" id="ot-submit" disabled>ورود به پنل مدیریت ←</button>
+      <button class="ot-btn" type="submit" id="ot-submit" disabled>{{ otp_submit|default("ورود به پنل مدیریت ←") }}</button>
     </form>
 
-    <form method="post" action="/manage/otp" id="ot-resend-form">
+    <form method="post" action="{{ otp_action|default('/manage/otp') }}" id="ot-resend-form">
       <input type="hidden" name="resend" value="1">
       <button class="ot-resend" type="submit" id="ot-resend" {% if not otp_dead %}disabled{% endif %}>
         🔄 ارسال مجدد کد{% if not otp_dead %} (بعد از پایان زمان){% endif %}

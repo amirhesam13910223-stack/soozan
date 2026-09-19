@@ -90,7 +90,7 @@ def dashboard():
     import os as _osd, json as _jsd
     from core import real_status as _rs
     with get_db() as _cd:
-        _rows = _cd.execute("SELECT * FROM files WHERE owner_id=? ORDER BY id DESC", (user_id,)).fetchall()
+        _rows = _cd.execute("SELECT * FROM files WHERE owner_id=? ORDER BY id DESC", (session.get("user_id"),)).fetchall()
     _fl = []
     _stats = {"total": 0, "active": 0, "viewing": 0, "done": 0, "locked": 0, "paused": 0, "expired": 0, "burned": 0, "gone": 0, "views": 0}
     for _x in _rows:
@@ -100,9 +100,11 @@ def dashboard():
         except Exception:
             _stg = {}
         _de = bool(_r.get("file_path") and _osd.path.exists(_r["file_path"]))
-        _k, _fa, _grp = _rs(_r, _stg, _de)
+        _k, _fa, _grp, _det = _rs(_r, _stg, _de)
         _r["status_fa_real"] = _fa
         _r["status_group_real"] = _grp
+        _r["status_detail"] = _det
+        _r["status_key_real"] = _k
         _fl.append(_r)
         _stats["total"] += 1
         _stats[_k] = _stats.get(_k, 0) + 1

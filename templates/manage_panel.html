@@ -14,6 +14,24 @@
     <div class="mp-meta">{{ file_info.mime }} · {{ file_info.size_kb }} KB</div>
   </div>
 
+  {% if copy_result %}
+  <div class="mp-section" style="border-color:#3b82f6">
+    <h3>{{ copy_result.label }}</h3>
+    <input class="mp-modal-input" id="cp-val" readonly value="{{ copy_result.value }}" style="font-size:14px;letter-spacing:1px">
+    <button class="mp-modal-go" id="cp-copy" style="margin-top:8px">📋 کپی</button>
+  </div>
+  {% endif %}
+  {% if stepup_error %}
+  <div class="mp-section" style="border-color:#ef4444">
+    <h3 style="color:#ef4444">⚠️ خطا در عملیات</h3>
+    <p style="font-size:13px;color:var(--dim);margin:0">{{ stepup_error }}</p>
+  </div>
+  {% endif %}
+  <div class="mp-section">
+    <h3>📋 جزئیات وضعیت فایل</h3>
+    <p style="font-size:13px;line-height:1.9;color:var(--dim);margin:0">{{ file_info.status_detail }}</p>
+  </div>
+
   <div class="mp-section">
     <h3>📊 اطلاعات کلی</h3>
     <div class="mp-row"><span class="k">آیدی فایل</span><span class="v">{{ file_info.uid_short }}</span></div>
@@ -51,7 +69,7 @@
   <div class="mp-section">
     <h3>🔥 عملیات حساس <span style="font-size:11px;color:var(--dim);font-weight:500">(نیاز به کد ۶ رقمی)</span></h3>
     <button class="mp-btn" data-action="copy_id">📋 کپی مجدد آیدی فایل</button>
-    {% if file_info.has_pw and file_info.pw_recoverable %}<button class="mp-btn" data-action="copy_pass">🔑 کپی رمز عبور فایل</button>{% endif %}
+    <button class="mp-btn" data-action="copy_pass">🔑 کپی رمز عبور فایل</button>
     <button class="mp-btn mp-btn-danger" data-action="burn" {% if not file_info.disk_exists %}disabled{% endif %}>🔥 سوزاندن کامل فایل</button>
   </div>
 
@@ -108,19 +126,7 @@
   document.addEventListener("click", function(ev){
     var b = ev.target.closest("button[data-action]");
     if(!b || b.disabled) return;
-    current = b.dataset.action;
-    descEl.textContent = MSGS[current] || "";
-    openModal();
-    fetch("/api/manage/" + TOKEN + "/" + current, {
-      method:"POST", headers:{"X-Mgmt-Stepup":"issue"}, credentials:"same-origin"
-    }).then(function(r){ return r.json(); }).then(function(j){
-      if(j.ok && j.demo){
-        demoEl.style.display = "block";
-        demoCodeEl.textContent = j.demo;
-      } else if(!j.ok){
-        showErr(j.error || "خطا در صدور کد");
-      }
-    }).catch(function(){ showErr("خطای ارتباط"); });
+    location.href = "/manage/stepup/" + TOKEN + "/" + b.dataset.action;
   });
 
   document.getElementById("mp-go").addEventListener("click", function(){
@@ -150,8 +156,8 @@
     }).catch(function(){ showErr("خطای ارتباط"); });
   });
 
-  document.getElementById("mp-result-copy").addEventListener("click", function(){
-    var inp = document.getElementById("mp-result-val");
+  if(document.getElementById("cp-copy")) document.getElementById("cp-copy").addEventListener("click", function(){
+    var inp = document.getElementById("cp-val");
     inp.select();
     if(inp.setSelectionRange) inp.setSelectionRange(0, 9999);
     try { document.execCommand("copy"); } catch(e){}

@@ -1107,23 +1107,25 @@ def client_ip() -> str:
 
 
 def real_status(rd, stg, disk_exists):
-    """وضعیت واقعی فایل: (کلید، برچسب فارسی، گروه رنگ)"""
+    """(کلید، badge سه‌گانه، گروه رنگ، جزئیات فارسی)"""
     import time as _tt
     vc = rd.get("views_count") or 0
     mv = int(stg.get("max_views") or 0)
     now = _tt.time()
-    if rd.get("status") == "burned":
-        return "burned", "حذف شده (دستی) 🔥", "bad"
-    if not disk_exists:
-        return "burned", "حذف شده (دستی) 🔥", "bad"
-    if rd.get("status") in ("locked", "paused"):
-        return "locked", "قفل شده (موقت) 🔒", "warn"
-
-    if rd.get("expires_at") and now > float(rd["expires_at"]):
-        return "expired", "منقضی شده ⏳", "bad"
-    if mv and vc >= mv:
-        return "done", "مشاهده شده ✅", "ok"
+    st = rd.get("status")
+    if st in ("locked", "paused"):
+        why = "قفل خودکار به دلیل رمز غلط بیش از حد" if st == "locked" else "مکث دستی از پنل مدیریت"
+        return "locked", "مکث 🔒", "warn", f"{why} → فایل موقتاً در دسترس نیست."
     vs = rd.get("view_started_at")
-    if vs and (now - float(vs)) < 3600:
-        return "viewing", "در حال مشاهده 👁", "ok"
-    return "active", "فعال 🟢", "ok"
+    win = float(stg.get("timer_seconds") or 0) or 3600
+    if vs and (now - float(vs)) < win + 60 and st == "active":
+        return "viewing", "فعال 🟢", "ok", "بیننده در حال مشاهده فایل است."
+    if mv and vc >= mv:
+        return "done", "غیرفعال ⚫", "bad", f"تعداد دیدن‌ها تمام شده ({vc}/{mv}) → فایل غیرفعال شد."
+    if st == "burned":
+        return "burned", "غیرفعال ⚫", "bad", "فایل به صورت دستی از پنل مدیریت سوخته/حذف شده است."
+    if not disk_exists:
+        return "gone", "غیرفعال ⚫", "bad", "فایل روی دیسک موجود نیست → غیرفعال."
+    if rd.get("expires_at") and now > float(rd["expires_at"]):
+        return "expired", "غیرفعال ⚫", "bad", "زمان انقضا رسیده است → فایل غیرفعال شد."
+    return "active", "فعال 🟢", "ok", f"فایل فعال و در انتظار مشاهده ({vc}/{mv if mv else '∞'} بازدید)."

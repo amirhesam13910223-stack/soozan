@@ -450,7 +450,7 @@ def manage_stepup(mgmt_token, action):
     remaining = max(0, int(st["exp"] - _t.time()))
     if request.form.get("resend"):
         code = f"{_sec.randbelow(1000000):06d}"
-        st.update(code=code, exp=_t.time() + 120, tries=0)
+        st.update(code=code, exp=_t.time() + 120, tries=0, locked=False)
         session["mgmt_stepup"] = st
         audit("MGMT_STEPUP_RESENT", client_ip(), f"action={action}")
         return page(None, demo=code if DEV else None, phone=masked, sec=120)

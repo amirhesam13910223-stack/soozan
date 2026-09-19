@@ -346,7 +346,7 @@ def test_5_manage(results):
     
     # ورود به پنل: کد مدیریت → کد پیامکی به مالک → پنل
     ms = requests.Session()
-    r = ms.post(f"{BASE}/api/manage/enter", data={"admin_code": admin_code})
+    r = ms.post(f"{BASE}/manage", data={"admin_code": admin_code})
     m2 = re.search(r'data-demo-code="(\d{6})"', r.text)
     if m2:
         ok("کد مدیریت پذیرفته شد → کد پیامکی به شماره مالک")
@@ -359,7 +359,7 @@ def test_5_manage(results):
         bad("کد پیامکی برای مدیریت صادر نشد")
 
     # کد اشتباه (باید متفاوت پاسخ دهد)
-    r = requests.post(f"{BASE}/api/manage/enter", data={"admin_code": "WRONG_CODE_12345"}, allow_redirects=False)
+    r = requests.post(f"{BASE}/manage", data={"admin_code": "WRONG_CODE_12345"}, allow_redirects=False)
     if r.status_code in (401, 403) or "نامعتبر" in r.text:
         ok("کد مدیریت اشتباه رد شد")
     else:

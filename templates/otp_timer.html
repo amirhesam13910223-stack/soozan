@@ -1,0 +1,31 @@
+{% set otp_dead = error and ("باطل" in error or "منقضی" in error) %}
+<div style="text-align:center;margin:14px 0 10px">
+  {% if not otp_dead %}
+  <span id="otp-timer" class="badge badge-warn" style="font-family:var(--mono);direction:ltr;display:inline-block;padding:7px 14px;font-size:15px">{{ "%02d:%02d"|format((seconds_left|default(120))//60, (seconds_left|default(120))%60) }}</span>
+  {% endif %}
+</div>
+<form id="resend-form" method="post" action="{{ request.path }}" style="margin:10px 0;{% if not otp_dead %}display:none{% endif %}">
+  <input type="hidden" name="resend" value="1">
+  <button class="btn btn-ghost btn-block" type="submit">🔄 ارسال مجدد کد</button>
+</form>
+<script nonce="{{ nonce }}">
+(function(){
+  var left = {{ seconds_left|default(120) }};
+  var el = document.getElementById("otp-timer");
+  var rf = document.getElementById("resend-form");
+  function tick(){
+    if(left <= 0){
+      if(el) el.style.display = "none";
+      if(rf) rf.style.display = "";
+      return;
+    }
+    if(el){
+      el.style.display = "";
+      el.textContent = String(Math.floor(left/60)).padStart(2,"0") + ":" + String(left%60).padStart(2,"0");
+    }
+    left -= 1;
+    setTimeout(tick, 1000);
+  }
+  tick();
+})();
+</script>

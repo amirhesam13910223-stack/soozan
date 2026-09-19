@@ -4,6 +4,7 @@ import hashlib as _hash
 import secrets as _sec
 import time as _t
 import os as _os
+import re
 from pathlib import Path
 from typing import Optional
 from flask import Blueprint, request, redirect, url_for, session, jsonify
@@ -228,36 +229,28 @@ def manage_panel(mgmt_token):
         return redirect(url_for("admin_panel.manage_enter"))
 
     with get_db() as conn:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        fcols = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
-        vcols = {r["name"] for r in conn.execute("PRAGMA table_info(views)")} if "views" in tables else set()
-        mv_col = next((c for c in ("max_views", "views_limit", "max_view", "burn_after") if c in fcols), None)
-        ts_col = next((c for c in ("ts", "created_at", "time") if c in vcols), None)
-        ok_col = next((c for c in ("ok", "success", "granted") if c in vcols), None)
-        pw_col = next((c for c in ("pw_hash", "password_hash", "pass_hash", "file_password") if c in fcols), None)
-        sel = ["f.*"]
-        if mv_col:
-            sel.append(f"f.{mv_col} AS max_views")
-        if ts_col:
-            sel.append("(SELECT COUNT(*) FROM views v WHERE v.file_id=f.id) AS vc")
-            sel.append(f"(SELECT MIN(v.{ts_col}) FROM views v WHERE v.file_id=f.id) AS fts")
-            sel.append(f"(SELECT MAX(v.{ts_col}) FROM views v WHERE v.file_id=f.id) AS lts")
-            if ok_col:
-                sel.append(f"(SELECT COUNT(*) FROM views v WHERE v.file_id=f.id AND v.{ok_col}=1) AS okc")
-                sel.append(f"(SELECT COUNT(*) FROM views v WHERE v.file_id=f.id AND v.{ok_col}=0) AS badc")
-        row = conn.execute("SELECT " + ", ".join(sel) + " FROM files f WHERE f.id=?",
-                           (info["file_id"],)).fetchone()
+        row = conn.execute(
+            "SELECT f.*, (SELECT COUNT(*) FROM views v WHERE v.file_id=f.id) AS vc, (SELECT MIN(v.viewed_at) FROM views v WHERE v.file_id=f.id) AS fts, (SELECT MAX(v.viewed_at) FROM views v WHERE v.file_id=f.id) AS lts FROM files f WHERE f.id=?", (info["file_id"],)
+        ).fetchone()
+        devs = conn.execute(
+            "SELECT device, COUNT(*) AS c FROM views v WHERE v.file_id=? GROUP BY device ORDER BY c DESC",
+            (info["file_id"],)
+        ).fetchall()
     if not row:
         return redirect(url_for("admin_panel.manage_enter"))
 
     STATUS_FA = {"active": "فعال", "paused": "متوقف", "locked": "قفل‌شده",
                  "burned": "سوخته", "revoked": "باطل‌شده"}
     rd = dict(row)
+    import json as _js, os as _osx
+    try:
+        stg = _js.loads(rd.get("settings") or "{}")
+    except Exception:
+        stg = {}
     ow = None
     if rd.get("owner_id"):
         with get_db() as c2:
-            ow = c2.execute("SELECT username, phone FROM users WHERE id=?", (rd["owner_id"],)).fetchone()
-    import os as _osx
+            ow = c2.execute("SELECT username AS un, phone AS ph FROM users WHERE id=?", (rd["owner_id"],)).fetchone()
     fp = rd.get("file_path")
     if fp and _osx.path.exists(fp):
         disk_fa = f"{_osx.path.getsize(fp) / 1024:.1f} KB"
@@ -265,8 +258,13 @@ def manage_panel(mgmt_token):
         disk_fa = "سوخته 🔥"
     else:
         disk_fa = "حذف‌شده"
-    mv = rd.get("max_views") or 0
-    vc = rd.get("vc") or 0
+    mv = int(stg.get("max_views") or 0)
+    vc = rd.get("views_count") or 0
+    pw_val = stg.get("password")
+    has_pw = bool(pw_val)
+    pw_is_hash = bool(pw_val) and re.fullmatch(r"[0-9a-fA-F]{32,128}", str(pw_val)) is not None
+    lock_n = int(stg.get("lock_after_wrong") or 0)
+    dev_fa = "، ".join(((d["device"] or "نامشخص")[:24] + " ×" + str(d["c"])) for d in devs) or "—"
     file_info = {
         "uid": rd["uid"],
         "uid_short": rd["uid"][:5] + "…",
@@ -279,13 +277,19 @@ def manage_panel(mgmt_token):
         "max_views": mv,
         "views_left": (mv - vc) if mv else "∞",
         "created_fa": _to_jalali(rd.get("created_at")),
-        "first_fa": _to_jalali(rd.get("fts")),
+        "first_fa": _to_jalali(rd.get("first_viewed")),
         "last_fa": _to_jalali(rd.get("lts")),
-        "owner_fa": (ow["username"] + " · " + ow["phone"][:4] + "***" + ow["phone"][-2:]) if (ow and ow["phone"]) else (ow["username"] if ow else "—"),
+        "owner_fa": (ow["un"] + " · " + ow["ph"][:4] + "***" + ow["ph"][-2:]) if (ow and ow["ph"]) else (ow["un"] if ow else "—"),
         "disk_fa": disk_fa,
-        "pw_fa": "دارد 🔒" if (pw_col and rd.get(pw_col)) else "ندارد",
-        "ok_count": rd.get("okc") or 0,
-        "bad_count": rd.get("badc") or 0,
+        "has_pw": has_pw,
+        "pw_recoverable": has_pw and not pw_is_hash,
+        "pw_fa": ("دارد 🔒" if has_pw else "ندارد") + ("" if (not has_pw or not pw_is_hash) else " (هش — غیرقابل بازیابی)"),
+        "ok_count": vc,
+        "bad_count": rd.get("wrong_pins") or 0,
+        "lock_fa": f"بعد از {lock_n} رمز غلط" if lock_n else "خاموش",
+        "ip_fa": rd.get("viewer_ip") or "—",
+        "exp_fa": _to_jalali(rd.get("expires_at")) if rd.get("expires_at") else "—",
+        "dev_fa": dev_fa,
     }
     tpl = (Path(__file__).parent / "templates" / "manage_panel.html").read_text(encoding="utf-8")
     return _render(tpl, file_info=file_info, mgmt_token=mgmt_token,
@@ -382,7 +386,7 @@ def _run_action(action: str, file_id: int):
 
 @bp.post("/api/manage/<mgmt_token>/<action>")
 def mgmt_action(mgmt_token, action):
-    if action not in ("pause", "resume", "burn", "revoke", "copy_id"):
+    if action not in ("pause", "resume", "burn", "revoke", "copy_id", "copy_pass"):
         return jsonify(ok=False, error="اکشن ناشناخته"), 404
     deny = _stepup_flow(action, mgmt_token)
     if deny:

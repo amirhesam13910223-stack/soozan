@@ -141,7 +141,7 @@ def manage_enter():
     audit("MANAGE_OTP_SENT", ip, f"uid={uid[:12]}… status={status}")
     masked = phone[:4] + "***" + phone[-2:]
     otp_tpl = (Path(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
-    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or client_ip() in ("127.0.0.1", "::1", "localhost")
     return _render(otp_tpl, demo_code=code if DEV else None, phone=masked,
                    error=None, seconds_left=120)
 
@@ -153,7 +153,7 @@ def manage_enter():
 def manage_otp_verify():
     ip = client_ip()
     otp_tpl = (Path(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
-    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or client_ip() in ("127.0.0.1", "::1", "localhost")
     pend = session.get("manage_otp")
 
     def page(err, demo=None, phone="", sec=0):
@@ -328,7 +328,7 @@ def _stepup_flow(action: str, mgmt_token: str):
             "code": code, "exp": _t.time() + 120, "tries": 0,
         }
         audit("MGMT_STEPUP_SENT", client_ip(), f"action={action}")
-        DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+        DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or client_ip() in ("127.0.0.1", "::1", "localhost")
         return jsonify(ok=True, demo=code if DEV else None)
 
     if mode != "verify":

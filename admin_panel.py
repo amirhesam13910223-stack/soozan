@@ -53,21 +53,15 @@ def verify_mgmt_token(token: str) -> Optional[dict]:
 
 
 def _to_jalali(ts) -> str:
-    """تبديل timestamp به تاریخ جلالی HH:MM YYYY/MM/DD"""
+    """تبديل timestamp به شمسی: YYYY/MM/DD HH:MM"""
     if not ts:
         return "—"
     import datetime as _dt
     d = _dt.datetime.fromtimestamp(float(ts))
     gy, gm, gd = d.year, d.month, d.day
     g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
-    gy2 = gy - 1600 if gm > 2 else gy - 1601
-    gm2 = gm - 1 if gm > 2 else gm + 11
-    gd2 = gd + g_d_m[gm - 1]
-    jy = 979 + 33 * (gy2 // 33) + (gy2 % 33) // 4
-    jd = (gy2 % 33) % 4
-    jy += jd // 4 if False else 0
-    # الگوريتم استاندارد
-    g_day_no = 365 * (gy - 1) + (gy - 1) // 4 - (gy - 1) // 100 + (gy - 1) // 400 + g_d_m[gm - 1] + gd - 1
+    gy2 = gy - 1600
+    g_day_no = 365 * gy2 + (gy2 + 3) // 4 - (gy2 + 99) // 100 + (gy2 + 399) // 400 + g_d_m[gm - 1] + gd - 1
     j_day_no = g_day_no - 79
     j_np = j_day_no // 12053
     j_day_no %= 12053
@@ -76,9 +70,14 @@ def _to_jalali(ts) -> str:
     if j_day_no >= 366:
         jy += (j_day_no - 1) // 365
         j_day_no = (j_day_no - 1) % 365
-    jm = 1 + (j_day_no // 31) if j_day_no // 31 < 6 else 7 + ((j_day_no - 186) // 30)
-    jd2 = j_day_no % 31 + 1 if j_day_no < 186 else (j_day_no - 186) % 30 + 1
-    return f"{jy:04d}/{jm:02d}/{jd2:02d}  {d.hour:02d}:{d.minute:02d}"
+    if j_day_no < 186:
+        jm = 1 + j_day_no // 31
+        jd = 1 + j_day_no % 31
+    else:
+        jm = 7 + (j_day_no - 186) // 30
+        jd = 1 + (j_day_no - 186) % 30
+    return f"{jy:04d}/{jm:02d}/{jd:02d}  {d.hour:02d}:{d.minute:02d}"
+
 
 
 def _otp_eq(a: str, b: str) -> bool:
@@ -229,18 +228,23 @@ def manage_panel(mgmt_token):
         return redirect(url_for("admin_panel.manage_enter"))
 
     with get_db() as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         fcols = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
-        vcols = {r["name"] for r in conn.execute("PRAGMA table_info(views)")}
-        ts_col = "ts" if "ts" in vcols else ("created_at" if "created_at" in vcols else None)
-        sel = ["f.id", "f.uid", "f.filename", "f.status", "f.mime", "f.size_bytes", "f.admin_code"]
-        if "max_views" in fcols:
-            sel.append("f.max_views")
-        if "created_at" in fcols:
-            sel.append("f.created_at")
+        vcols = {r["name"] for r in conn.execute("PRAGMA table_info(views)")} if "views" in tables else set()
+        mv_col = next((c for c in ("max_views", "views_limit", "max_view", "burn_after") if c in fcols), None)
+        ts_col = next((c for c in ("ts", "created_at", "time") if c in vcols), None)
+        ok_col = next((c for c in ("ok", "success", "granted") if c in vcols), None)
+        pw_col = next((c for c in ("pw_hash", "password_hash", "pass_hash", "file_password") if c in fcols), None)
+        sel = ["f.*"]
+        if mv_col:
+            sel.append(f"f.{mv_col} AS max_views")
         if ts_col:
             sel.append("(SELECT COUNT(*) FROM views v WHERE v.file_id=f.id) AS vc")
             sel.append(f"(SELECT MIN(v.{ts_col}) FROM views v WHERE v.file_id=f.id) AS fts")
             sel.append(f"(SELECT MAX(v.{ts_col}) FROM views v WHERE v.file_id=f.id) AS lts")
+            if ok_col:
+                sel.append(f"(SELECT COUNT(*) FROM views v WHERE v.file_id=f.id AND v.{ok_col}=1) AS okc")
+                sel.append(f"(SELECT COUNT(*) FROM views v WHERE v.file_id=f.id AND v.{ok_col}=0) AS badc")
         row = conn.execute("SELECT " + ", ".join(sel) + " FROM files f WHERE f.id=?",
                            (info["file_id"],)).fetchone()
     if not row:
@@ -249,6 +253,20 @@ def manage_panel(mgmt_token):
     STATUS_FA = {"active": "فعال", "paused": "متوقف", "locked": "قفل‌شده",
                  "burned": "سوخته", "revoked": "باطل‌شده"}
     rd = dict(row)
+    ow = None
+    if rd.get("owner_id"):
+        with get_db() as c2:
+            ow = c2.execute("SELECT username, phone FROM users WHERE id=?", (rd["owner_id"],)).fetchone()
+    import os as _osx
+    fp = rd.get("file_path")
+    if fp and _osx.path.exists(fp):
+        disk_fa = f"{_osx.path.getsize(fp) / 1024:.1f} KB"
+    elif rd["status"] == "burned":
+        disk_fa = "سوخته 🔥"
+    else:
+        disk_fa = "حذف‌شده"
+    mv = rd.get("max_views") or 0
+    vc = rd.get("vc") or 0
     file_info = {
         "uid": rd["uid"],
         "uid_short": rd["uid"][:5] + "…",
@@ -257,11 +275,17 @@ def manage_panel(mgmt_token):
         "status_fa": STATUS_FA.get(rd["status"], rd["status"]),
         "mime": rd.get("mime") or "—",
         "size_kb": round((rd.get("size_bytes") or 0) / 1024, 1),
-        "views": rd.get("vc") or 0,
-        "max_views": rd.get("max_views") or 0,
+        "views": vc,
+        "max_views": mv,
+        "views_left": (mv - vc) if mv else "∞",
         "created_fa": _to_jalali(rd.get("created_at")),
         "first_fa": _to_jalali(rd.get("fts")),
         "last_fa": _to_jalali(rd.get("lts")),
+        "owner_fa": (ow["username"] + " · " + ow["phone"][:4] + "***" + ow["phone"][-2:]) if (ow and ow["phone"]) else (ow["username"] if ow else "—"),
+        "disk_fa": disk_fa,
+        "pw_fa": "دارد 🔒" if (pw_col and rd.get(pw_col)) else "ندارد",
+        "ok_count": rd.get("okc") or 0,
+        "bad_count": rd.get("badc") or 0,
     }
     tpl = (Path(__file__).parent / "templates" / "manage_panel.html").read_text(encoding="utf-8")
     return _render(tpl, file_info=file_info, mgmt_token=mgmt_token,

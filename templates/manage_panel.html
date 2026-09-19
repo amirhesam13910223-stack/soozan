@@ -19,6 +19,16 @@
     <div class="mp-row"><span class="k">آیدی فایل</span><span class="v">{{ file_info.uid_short }}</span></div>
     <div class="mp-row"><span class="k">بازدید</span><span class="v">{{ file_info.views }} / {{ file_info.max_views }}</span></div>
     <div class="mp-row"><span class="k">آپلود</span><span class="v fa">{{ file_info.created_fa }}</span></div>
+    <div class="mp-row"><span class="k">مالک</span><span class="v fa">{{ file_info.owner_fa }}</span></div>
+    <div class="mp-row"><span class="k">باقی‌مانده بازدید</span><span class="v">{{ file_info.views_left }}</span></div>
+    <div class="mp-row"><span class="k">رمز فایل</span><span class="v fa">{{ file_info.pw_fa }}</span></div>
+    <div class="mp-row"><span class="k">حجم روی دیسک</span><span class="v fa">{{ file_info.disk_fa }}</span></div>
+  </div>
+
+  <div class="mp-section">
+    <h3>🔑 تلاش‌های دسترسی</h3>
+    <div class="mp-row"><span class="k">موفق</span><span class="v" style="color:#22c55e">{{ file_info.ok_count }}</span></div>
+    <div class="mp-row"><span class="k">ناموفق</span><span class="v" style="color:#ef4444">{{ file_info.bad_count }}</span></div>
   </div>
 
   <div class="mp-section">

@@ -1,22 +1,24 @@
 {% extends "base.html" %}
+{% block head %}<link rel="stylesheet" href="/static/mgmt.css">{% endblock %}
 {% block title %}سوزان — ورود پنل مدیریت{% endblock %}
 {% block body %}
-<div class="wrap" style="max-width:430px;margin:0 auto;padding:24px 16px">
-  <div style="text-align:center;margin-bottom:18px" data-reveal>
-    <span style="font-size:44px">🔐</span>
-    <h1 style="font-size:22px;font-weight:700;margin-top:8px">ورود پنل مدیریت</h1>
-    <p style="color:var(--dim);font-size:13px;margin-top:4px">کد مدیریت فایل را وارد کن</p>
-  </div>
-  {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
-  <div class="card pad">
+
+
+<div class="mg-wrap">
+  <div class="mg-card">
+    <div class="mg-icon">🔐</div>
+    <h1 class="mg-title">ورود پنل مدیریت</h1>
+    <p class="mg-sub">کد مدیریت اختصاصی فایل خود را وارد کنید<br>در مرحله بعد، یک کد تأیید به شماره مالک ارسال می‌شود</p>
+
+    {% if error %}<div class="mg-alert">⚠️ {{ error }}</div>{% endif %}
+
     <form method="post" action="/manage">
-      <div class="field">
-        <label class="label" for="admin_code">کد مدیریت</label>
-        <input class="input" id="admin_code" name="admin_code" required
-               style="font-family:var(--mono);letter-spacing:2px">
-      </div>
-      <button class="btn btn-acc btn-block" type="submit">ادامه ←</button>
+      <label class="mg-label" for="admin_code">کد مدیریت</label>
+      <input class="mg-input" id="admin_code" name="admin_code" required
+             placeholder="xxxxx-xxxxx-xxxxx-xxxxx" autofocus>
+      <button class="mg-btn" type="submit">ادامه ←</button>
     </form>
+    <p class="mg-hint">🔒 ارتباط امن · تأیید دومرحله‌ای اجباری</p>
   </div>
 </div>
 {% endblock %}

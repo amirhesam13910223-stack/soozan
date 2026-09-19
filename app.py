@@ -587,6 +587,13 @@ def debug_session():
     })
 
 
+
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    from flask import send_from_directory
+    from pathlib import Path as _P
+    return send_from_directory(_P(__file__).parent / "static", filename)
+
 if __name__ == "__main__":
     if DEV_MODE:
         print("!" * 56)

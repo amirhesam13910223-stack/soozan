@@ -52,6 +52,35 @@ def verify_mgmt_token(token: str) -> Optional[dict]:
         return None
 
 
+def _to_jalali(ts) -> str:
+    """تبديل timestamp به تاریخ جلالی HH:MM YYYY/MM/DD"""
+    if not ts:
+        return "—"
+    import datetime as _dt
+    d = _dt.datetime.fromtimestamp(float(ts))
+    gy, gm, gd = d.year, d.month, d.day
+    g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    gy2 = gy - 1600 if gm > 2 else gy - 1601
+    gm2 = gm - 1 if gm > 2 else gm + 11
+    gd2 = gd + g_d_m[gm - 1]
+    jy = 979 + 33 * (gy2 // 33) + (gy2 % 33) // 4
+    jd = (gy2 % 33) % 4
+    jy += jd // 4 if False else 0
+    # الگوريتم استاندارد
+    g_day_no = 365 * (gy - 1) + (gy - 1) // 4 - (gy - 1) // 100 + (gy - 1) // 400 + g_d_m[gm - 1] + gd - 1
+    j_day_no = g_day_no - 79
+    j_np = j_day_no // 12053
+    j_day_no %= 12053
+    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+    j_day_no %= 1461
+    if j_day_no >= 366:
+        jy += (j_day_no - 1) // 365
+        j_day_no = (j_day_no - 1) % 365
+    jm = 1 + (j_day_no // 31) if j_day_no // 31 < 6 else 7 + ((j_day_no - 186) // 30)
+    jd2 = j_day_no % 31 + 1 if j_day_no < 186 else (j_day_no - 186) % 30 + 1
+    return f"{jy:04d}/{jm:02d}/{jd2:02d}  {d.hour:02d}:{d.minute:02d}"
+
+
 def _otp_eq(a: str, b: str) -> bool:
     if not a or not b:
         return False
@@ -145,6 +174,7 @@ def manage_otp_verify():
         pend["code"] = new_code
         pend["exp"] = _t.time() + 120
         pend["tries"] = 0
+        pend["locked"] = False
         session["manage_otp"] = pend
         phone = ""
         with get_db() as conn:
@@ -199,23 +229,39 @@ def manage_panel(mgmt_token):
         return redirect(url_for("admin_panel.manage_enter"))
 
     with get_db() as conn:
-        row = conn.execute(
-            "SELECT f.id, f.uid, f.filename, f.status, f.mime, f.size_bytes, f.admin_code "
-            "FROM files f WHERE f.id=?", (info["file_id"],)
-        ).fetchone()
+        fcols = {r["name"] for r in conn.execute("PRAGMA table_info(files)")}
+        vcols = {r["name"] for r in conn.execute("PRAGMA table_info(views)")}
+        ts_col = "ts" if "ts" in vcols else ("created_at" if "created_at" in vcols else None)
+        sel = ["f.id", "f.uid", "f.filename", "f.status", "f.mime", "f.size_bytes", "f.admin_code"]
+        if "max_views" in fcols:
+            sel.append("f.max_views")
+        if "created_at" in fcols:
+            sel.append("f.created_at")
+        if ts_col:
+            sel.append("(SELECT COUNT(*) FROM views v WHERE v.file_id=f.id) AS vc")
+            sel.append(f"(SELECT MIN(v.{ts_col}) FROM views v WHERE v.file_id=f.id) AS fts")
+            sel.append(f"(SELECT MAX(v.{ts_col}) FROM views v WHERE v.file_id=f.id) AS lts")
+        row = conn.execute("SELECT " + ", ".join(sel) + " FROM files f WHERE f.id=?",
+                           (info["file_id"],)).fetchone()
     if not row:
         return redirect(url_for("admin_panel.manage_enter"))
 
     STATUS_FA = {"active": "فعال", "paused": "متوقف", "locked": "قفل‌شده",
                  "burned": "سوخته", "revoked": "باطل‌شده"}
+    rd = dict(row)
     file_info = {
-        "uid": row["uid"],
-        "uid_short": row["uid"][:5] + "…",
-        "filename": row["filename"],
-        "status": row["status"],
-        "status_fa": STATUS_FA.get(row["status"], row["status"]),
-        "mime": row["mime"] or "—",
-        "size_kb": round((row["size_bytes"] or 0) / 1024, 1),
+        "uid": rd["uid"],
+        "uid_short": rd["uid"][:5] + "…",
+        "filename": rd["filename"],
+        "status": rd["status"],
+        "status_fa": STATUS_FA.get(rd["status"], rd["status"]),
+        "mime": rd.get("mime") or "—",
+        "size_kb": round((rd.get("size_bytes") or 0) / 1024, 1),
+        "views": rd.get("vc") or 0,
+        "max_views": rd.get("max_views") or 0,
+        "created_fa": _to_jalali(rd.get("created_at")),
+        "first_fa": _to_jalali(rd.get("fts")),
+        "last_fa": _to_jalali(rd.get("lts")),
     }
     tpl = (Path(__file__).parent / "templates" / "manage_panel.html").read_text(encoding="utf-8")
     return _render(tpl, file_info=file_info, mgmt_token=mgmt_token,

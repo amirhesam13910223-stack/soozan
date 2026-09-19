@@ -1,52 +1,62 @@
 {% extends "app.html" %}
+{% block head %}<link rel="stylesheet" href="/static/mgmt.css">{% endblock %}
 {% block title %}سوزان — مدیریت {{ file_info.filename }}{% endblock %}
 {% block app_content %}
-<div class="wrap-wide" style="padding:20px 16px">
-  <div data-reveal>
-    <h1 style="font-size:22px;margin-bottom:8px">{{ file_info.filename }}</h1>
-    <p style="color:var(--dim);font-size:13px">
-      <span class="badge b-{{ 'ok' if file_info.status == 'active' else 'warn' if file_info.status in ('paused','locked') else 'bad' }}">
+
+
+<div class="mp-wrap">
+  <div class="mp-header">
+    <div class="mp-fname">{{ file_info.filename }}
+      <span class="mp-badge {% if file_info.status == 'active' %}mp-b-ok{% elif file_info.status in ('paused','locked') %}mp-b-warn{% else %}mp-b-bad{% endif %}">
         {{ file_info.status_fa }}
       </span>
-      <span style="color:var(--mute);margin-right:10px">{{ file_info.mime }} · {{ file_info.size_kb }} KB</span>
-    </p>
-    <p style="font-family:var(--mono);font-size:12.5px;color:var(--mute);margin-top:6px">آیدی: <b>{{ file_info.uid_short }}</b></p>
+    </div>
+    <div class="mp-meta">{{ file_info.mime }} · {{ file_info.size_kb }} KB</div>
   </div>
 
-  <div class="card pad" style="margin-top:18px" data-reveal>
-    <h3 style="font-size:15px;margin-bottom:12px">⚡ عملیات</h3>
-    <button class="btn btn-ghost btn-block" data-action="pause"
-            {% if file_info.status != 'active' %}disabled style="opacity:.45"{% endif %}>
-            ⏸ مکث موقت
-    </button>
-    <button class="btn {{ 'btn-acc' if file_info.status in ('paused','locked') else 'btn-ghost' }} btn-block"
-            data-action="resume"
-            {% if file_info.status not in ('paused','locked') %}disabled style="opacity:.45"{% endif %}>
-            ▶ ادامه دسترسی
-    </button>
+  <div class="mp-section">
+    <h3>📊 اطلاعات کلی</h3>
+    <div class="mp-row"><span class="k">آیدی فایل</span><span class="v">{{ file_info.uid_short }}</span></div>
+    <div class="mp-row"><span class="k">بازدید</span><span class="v">{{ file_info.views }} / {{ file_info.max_views }}</span></div>
+    <div class="mp-row"><span class="k">آپلود</span><span class="v fa">{{ file_info.created_fa }}</span></div>
   </div>
 
-  <div class="card pad" style="margin-top:12px" data-reveal>
-    <h3 style="font-size:15px;margin-bottom:12px;color:var(--danger)">🔥 عملیات حساس (با کد ۶ رقمی)</h3>
-    <button class="btn btn-ghost btn-block" data-action="copy_id">📋 کپی مجدد آیدی فایل</button>
-    <button class="btn btn-ghost btn-block" data-action="revoke">🚫 باطل‌کردن کامل دسترسی</button>
-    <button class="btn btn-danger btn-block" data-action="burn">🔥 سوزاندن کامل فایل</button>
+  <div class="mp-section">
+    <h3>📅 بازه مشاهده</h3>
+    <div class="mp-row"><span class="k">اولین بازدید</span><span class="v fa">{{ file_info.first_fa }}</span></div>
+    <div class="mp-row"><span class="k">آخرین بازدید</span><span class="v fa">{{ file_info.last_fa }}</span></div>
   </div>
 
-  <a href="/dashboard" style="display:block;text-align:center;color:var(--dim);font-size:12.5px;margin-top:18px;text-decoration:none">بازگشت به داشبورد</a>
+  <div class="mp-section">
+    <h3>⚡ عملیات سریع</h3>
+    <button class="mp-btn" data-action="pause"
+            {% if file_info.status != 'active' %}disabled{% endif %}>⏸ مکث موقت</button>
+    <button class="mp-btn mp-btn-primary" data-action="resume"
+            {% if file_info.status not in ('paused','locked') %}disabled{% endif %}>▶ ادامه دسترسی</button>
+  </div>
+
+  <div class="mp-section">
+    <h3>🔥 عملیات حساس <span style="font-size:11px;color:var(--dim);font-weight:500">(نیاز به کد ۶ رقمی)</span></h3>
+    <button class="mp-btn" data-action="copy_id">📋 کپی مجدد آیدی فایل</button>
+    <button class="mp-btn" data-action="revoke">🚫 باطل‌کردن کامل دسترسی</button>
+    <button class="mp-btn mp-btn-danger" data-action="burn">🔥 سوزاندن کامل فایل</button>
+  </div>
+
+  <a href="/dashboard" class="mp-link">↩ بازگشت به داشبورد</a>
 </div>
 
-<!-- مودال step-up -->
-<div id="stepup-modal" style="display:none;position:fixed;inset:0;background:#000000b8;z-index:120;align-items:center;justify-content:center;padding:16px">
-  <div class="card pad" style="max-width:380px;width:100%">
-    <h3 style="font-size:16px;margin-bottom:8px">🔐 تأیید پله‌ای</h3>
-    <p id="stepup-desc" style="color:var(--dim);font-size:12.5px;margin-bottom:10px"></p>
-    <div id="stepup-demo" class="badge badge-info" style="display:none;padding:8px;margin-bottom:10px;white-space:normal;line-height:1.7"></div>
-    <div id="stepup-err" class="alert alert-err" style="display:none"></div>
-    <input class="input" id="stepup-code" inputmode="numeric" maxlength="6" placeholder="کد ۶ رقمی"
-           style="direction:ltr;text-align:center;letter-spacing:6px;font-family:var(--mono)">
-    <button class="btn btn-acc btn-block" id="stepup-go" style="margin-top:10px">اجرای عملیات</button>
-    <button class="btn btn-ghost btn-block" id="stepup-cancel" style="margin-top:6px">انصراف</button>
+<div class="mp-modal-bg" id="mp-modal">
+  <div class="mp-modal">
+    <h3>🔐 تأیید پله‌ای</h3>
+    <p class="mp-modal-desc" id="mp-desc"></p>
+    <div class="mp-modal-demo" id="mp-demo">
+      <div class="mp-modal-demo-label">📨 کد دمو</div>
+      <div class="mp-modal-demo-code" id="mp-demo-code"></div>
+    </div>
+    <div class="mp-modal-err" id="mp-err"></div>
+    <input class="mp-modal-input" id="mp-code" inputmode="numeric" maxlength="6" placeholder="------">
+    <button class="mp-modal-go" id="mp-go">اجرای عملیات ←</button>
+    <button class="mp-modal-cancel" id="mp-cancel">انصراف</button>
   </div>
 </div>
 
@@ -55,54 +65,59 @@
   var TOKEN = "{{ mgmt_token }}";
   var CSRF  = "{{ confirm_code }}";
   var current = null;
+  var modal = document.getElementById("mp-modal");
+  var codeEl = document.getElementById("mp-code");
+  var demoEl = document.getElementById("mp-demo");
+  var demoCodeEl = document.getElementById("mp-demo-code");
+  var errEl = document.getElementById("mp-err");
+  var descEl = document.getElementById("mp-desc");
 
-  function showErr(t){ var e = document.getElementById("stepup-err"); e.textContent = t; e.style.display = "block"; }
-  function hideErr(){ document.getElementById("stepup-err").style.display = "none"; }
+  function showErr(t){ errEl.textContent = t; errEl.style.display = "block"; }
+  function hideErr(){ errEl.style.display = "none"; }
+  function openModal(){ modal.style.display = "flex"; codeEl.value = ""; hideErr();
+    demoEl.style.display = "none"; setTimeout(function(){ codeEl.focus(); }, 50); }
+  function closeModal(){ modal.style.display = "none"; }
+
+  var MSGS = {
+    pause:    "برای مکث موقت فایل، کد ارسال‌شده به شماره مالک را وارد کنید.",
+    resume:   "برای ادامه دسترسی، کد ارسال‌شده به شماره مالک را وارد کنید.",
+    copy_id:  "برای کپی آیدی فایل، کد ارسال‌شده به شماره مالک را وارد کنید.",
+    revoke:   "برای باطل‌کردن کامل دسترسی، کد ارسال‌شده به شماره مالک را وارد کنید.",
+    burn:     "⚠️ سوزاندن فایل غیرقابل بازگشت است. کد ارسال‌شده به شماره مالک را وارد کنید."
+  };
 
   document.addEventListener("click", function(ev){
     var b = ev.target.closest("button[data-action]");
-    if(!b) return;
+    if(!b || b.disabled) return;
     current = b.dataset.action;
-    hideErr();
-    document.getElementById("stepup-code").value = "";
-    document.getElementById("stepup-demo").style.display = "none";
-    var msgs = {
-      pause: "برای مکث موقت فایل، کد ارسال‌شده به شماره مالک را وارد کن.",
-      resume: "برای ادامه دسترسی، کد ارسال‌شده به شماره مالک را وارد کن.",
-      copy_id: "برای کپی آیدی فایل، کد ارسال‌شده به شماره مالک را وارد کن.",
-      revoke: "برای باطل‌کردن کامل دسترسی، کد ارسال‌شده به شماره مالک را وارد کن.",
-      burn: "⚠️ سوزاندن فایل غیرقابل بازگشت است. کد ارسال‌شده به شماره مالک را وارد کن."
-    };
-    document.getElementById("stepup-desc").textContent = msgs[current] || "";
-    document.getElementById("stepup-modal").style.display = "flex";
-
+    descEl.textContent = MSGS[current] || "";
+    openModal();
     fetch("/api/manage/" + TOKEN + "/" + current, {
       method:"POST", headers:{"X-Mgmt-Stepup":"issue"}, credentials:"same-origin"
     }).then(function(r){ return r.json(); }).then(function(j){
       if(j.ok && j.demo){
-        var d = document.getElementById("stepup-demo");
-        d.style.display = "block";
-        d.textContent = "📨 کد دمو: " + j.demo;
+        demoEl.style.display = "block";
+        demoCodeEl.textContent = j.demo;
       } else if(!j.ok){
         showErr(j.error || "خطا در صدور کد");
       }
     }).catch(function(){ showErr("خطای ارتباط"); });
   });
 
-  document.getElementById("stepup-go").addEventListener("click", function(){
+  document.getElementById("mp-go").addEventListener("click", function(){
     if(!current) return;
     var fd = new FormData();
-    fd.append("code", document.getElementById("stepup-code").value.trim());
+    fd.append("code", codeEl.value.trim());
     fd.append("confirm_code", CSRF);
     fetch("/api/manage/" + TOKEN + "/" + current, {
       method:"POST", body:fd,
       headers:{"X-Mgmt-Stepup":"verify"}, credentials:"same-origin"
     }).then(function(r){ return r.json(); }).then(function(j){
       if(j.ok){
-        document.getElementById("stepup-modal").style.display = "none";
+        closeModal();
         if(current === "copy_id" && j.uid){
           if(navigator.clipboard) navigator.clipboard.writeText(j.uid);
-          alert("📋 آیدی فایل کپی شد: " + j.uid.slice(0,5) + "…");
+          alert("📋 آیدی فایل کپی شد:\n" + j.uid);
         }
         location.reload();
       } else {
@@ -111,8 +126,10 @@
     }).catch(function(){ showErr("خطای ارتباط"); });
   });
 
-  document.getElementById("stepup-cancel").addEventListener("click", function(){
-    document.getElementById("stepup-modal").style.display = "none";
+  document.getElementById("mp-cancel").addEventListener("click", closeModal);
+  modal.addEventListener("click", function(ev){ if(ev.target === modal) closeModal(); });
+  document.addEventListener("keydown", function(ev){
+    if(ev.key === "Escape" && modal.style.display === "flex") closeModal();
   });
 })();
 </script>

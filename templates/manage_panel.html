@@ -1,414 +1,116 @@
 {% extends "app.html" %}
 {% block title %}سوزان — مدیریت {{ file_info.filename }}{% endblock %}
-
 {% block app_content %}
-<div id="mgmt-live">
-<div class="wrap-wide">
-  <div style="margin-bottom:20px" data-reveal>
-    <h1 style="font-size:22px;margin-bottom:6px">{{ file_info.filename }}</h1>
+<div class="wrap-wide" style="padding:20px 16px">
+  <div data-reveal>
+    <h1 style="font-size:22px;margin-bottom:8px">{{ file_info.filename }}</h1>
     <p style="color:var(--dim);font-size:13px">
-      <span class="badge b-{{ 'ok' if file_info.status == 'active' else 'warn' if file_info.status == 'paused' else 'bad' if file_info.status in ('burned','locked') else 'warn' }}">
+      <span class="badge b-{{ 'ok' if file_info.status == 'active' else 'warn' if file_info.status in ('paused','locked') else 'bad' }}">
         {{ file_info.status_fa }}
       </span>
-      <span style="color:var(--mute);margin-right:10px">
-        {{ file_info.mime }} · {{ file_info.size_kb }} KB
-      </span>
+      <span style="color:var(--mute);margin-right:10px">{{ file_info.mime }} · {{ file_info.size_kb }} KB</span>
     </p>
+    <p style="font-family:var(--mono);font-size:12.5px;color:var(--mute);margin-top:6px">آیدی: <b>{{ file_info.uid_short }}</b></p>
   </div>
 
-  <div class="grid2" style="margin-bottom:18px">
-    <div class="card pad" data-reveal>
-      <div class="sec">
-        <h3>📊 اطلاعات کلی</h3>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13.5px;border-bottom:1px solid var(--line2)">
-          <span style="color:var(--dim)">UID</span>
-          <span style="font-family:var(--mono);direction:ltr">{{ file_info.uid[:5] }}……</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13.5px;border-bottom:1px solid var(--line2)">
-          <span style="color:var(--dim)">بازدید</span>
-          <span><strong>{{ file_info.views_count }}</strong> / {{ file_info.max_views }}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13.5px">
-          <span style="color:var(--dim)">آپلود</span>
-          <span style="font-family:var(--mono);direction:ltr">{{ file_info.created_at_fa }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="card pad" data-reveal>
-      <div class="sec">
-        <h3>🔧 عملیات سریع</h3>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button class="btn btn-ghost" onclick="action('pause')" {{ 'disabled' if file_info.status == 'paused' else '' }}>
+  <div class="card pad" style="margin-top:18px" data-reveal>
+    <h3 style="font-size:15px;margin-bottom:12px">⚡ عملیات</h3>
+    <button class="btn btn-ghost btn-block" data-action="pause"
+            {% if file_info.status != 'active' %}disabled style="opacity:.45"{% endif %}>
             ⏸ مکث موقت
-          </button>
-          <button class="btn btn-ghost" onclick="action('resume')" {{ 'disabled' if file_info.status != 'paused' else '' }}>
+    </button>
+    <button class="btn {{ 'btn-acc' if file_info.status in ('paused','locked') else 'btn-ghost' }} btn-block"
+            data-action="resume"
+            {% if file_info.status not in ('paused','locked') %}disabled style="opacity:.45"{% endif %}>
             ▶ ادامه دسترسی
-          </button>
-        </div>
-      </div>
-    </div>
+    </button>
   </div>
 
-  <div class="card pad" style="margin-bottom:18px" data-reveal>
-    <div class="sec">
-      <h3>⚠️ عملیات حساس (نیاز به تأیید دو مرحله‌ای)</h3>
-      <div class="grid2">
-        <button class="btn btn-acc" style="background:linear-gradient(135deg,#fb7185,#f43f5e)" onclick="showConfirmModal('burn')">
-          🔥 سوزاندن کامل فایل
-        </button>
-      </div>
-      <p style="color:var(--mute);font-size:11.5px;margin-top:10px">
-        این عملیات نیاز به تأیید با کد یکبارمصرف دارند.
-      </p>
-    </div>
+  <div class="card pad" style="margin-top:12px" data-reveal>
+    <h3 style="font-size:15px;margin-bottom:12px;color:var(--danger)">🔥 عملیات حساس (با کد ۶ رقمی)</h3>
+    <button class="btn btn-ghost btn-block" data-action="copy_id">📋 کپی مجدد آیدی فایل</button>
+    <button class="btn btn-ghost btn-block" data-action="revoke">🚫 باطل‌کردن کامل دسترسی</button>
+    <button class="btn btn-danger btn-block" data-action="burn">🔥 سوزاندن کامل فایل</button>
   </div>
 
-    <!-- ═══ بخش آنالیتیکس پیشرفته (فاز G) ═══ -->
-  <div style="margin-bottom:18px" data-reveal>
-    {% if analytics.anomalies %}
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      {% for a in analytics.anomalies %}
-      <div class="alert alert-err" style="flex:1;min-width:220px;margin:0;padding:10px 14px;{{ 'border-inline-start-color:var(--bad)' if a.level == 'bad' else 'border-inline-start-color:var(--warn)' }}">
-        <strong>{{ a.icon }} {{ a.title }}</strong>
-        <div style="font-size:12px;margin-top:4px;opacity:0.9">{{ a.detail }}</div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if analytics.live_count > 0 %}
-    <div class="alert alert-ok" style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <span class="pulse"></span>
-      <div>
-        <strong>{{ analytics.live_count }} بیننده فعال</strong>
-        <div style="font-size:12px;opacity:0.8">در حال مشاهده محتوا (۲ دقیقه اخیر)</div>
-      </div>
-    </div>
-    {% endif %}
-
-    <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:14px">
-      <div class="card pad" style="text-align:center">
-        <div style="font-size:28px;font-weight:700;color:var(--acc)" data-count="{{ analytics.total_views }}">0</div>
-        <div style="font-size:12px;color:var(--dim);margin-top:4px">کل بازدید</div>
-      </div>
-      <div class="card pad" style="text-align:center">
-        <div style="font-size:28px;font-weight:700;color:var(--ok)" data-count="{{ analytics.successful_attempts }}">0</div>
-        <div style="font-size:12px;color:var(--dim);margin-top:4px">رمز موفق</div>
-      </div>
-      <div class="card pad" style="text-align:center">
-        <div style="font-size:28px;font-weight:700;color:var(--bad)" data-count="{{ analytics.failed_attempts }}">0</div>
-        <div style="font-size:12px;color:var(--dim);margin-top:4px">رمز ناموفق</div>
-      </div>
-      <div class="card pad" style="text-align:center">
-        <div style="font-size:28px;font-weight:700;color:var(--info)">{{ analytics.live_count }}</div>
-        <div style="font-size:12px;color:var(--dim);margin-top:4px">آنلاین الان</div>
-      </div>
-    </div>
-  </div>
-
-{% if analytics.first_view_fa %}
-  <div class="card pad" style="margin-bottom:18px" data-reveal>
-    <div class="sec">
-      <h3>📅 بازه مشاهده</h3>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px">
-        <span style="color:var(--dim)">اولین بازدید</span>
-        <span style="font-family:var(--mono);direction:ltr">{{ analytics.first_view_fa }}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px">
-        <span style="color:var(--dim)">آخرین بازدید</span>
-        <span style="font-family:var(--mono);direction:ltr">{{ analytics.last_view_fa }}</span>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Export Report (فاز H) -->
-<div class="card pad" style="margin-bottom:18px" data-reveal>
-    <div class="sec">
-      <h3>🔑 تلاش‌های رمز ({{ attempts|length }} مورد)</h3>
-      {% if attempts %}
-      <div style="max-height:280px;overflow-y:auto">
-        {% for a in attempts[:15] %}
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid var(--line2);font-family:var(--mono);direction:ltr">
-          <span class="badge {{ 'b-ok' if a.success else 'b-bad' }}">
-            {{ 'موفق' if a.success else 'ناموفق' }}
-          </span>
-          <span style="color:var(--dim)">{{ a.ip }}</span>
-          <span style="color:var(--mute)">{{ a.attempted_at_fa }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <p style="color:var(--mute);text-align:center;padding:12px">هنوز تلاشی ثبت نشده</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="card pad" style="margin-bottom:18px" data-reveal>
-    <div class="sec">
-      <h3>📜 تاریخچه اکشن‌ها ({{ admin_actions|length }} مورد)</h3>
-      {% if admin_actions %}
-      <div style="max-height:280px;overflow-y:auto">
-        {% for a in admin_actions[:15] %}
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid var(--line2);font-family:var(--mono);direction:ltr">
-          <span class="chip">{{ a.action }}</span>
-          <span style="color:var(--dim)">{{ a.ip or 'system' }}</span>
-          <span style="color:var(--mute)">{{ a.at_fa }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <p style="color:var(--mute);text-align:center;padding:12px">هنوز اکشنی ثبت نشده</p>
-      {% endif %}
-    </div>
-  </div>
+  <a href="/dashboard" style="display:block;text-align:center;color:var(--dim);font-size:12.5px;margin-top:18px;text-decoration:none">بازگشت به داشبورد</a>
 </div>
 
-<div id="confirmModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(8px)">
-  <div class="card pad" style="max-width:420px;width:90%">
-    <h2 style="font-size:18px;margin-bottom:14px" id="confirmTitle">تأیید عملیات</h2>
-    <p style="color:var(--dim);font-size:13.5px;line-height:1.8;margin-bottom:14px" id="confirmText"></p>
-    <div class="alert alert-ok" style="text-align:center;padding:14px">
-      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">کد تأیید را وارد کن:</div>
-      <div id="confirmCode" style="font-family:var(--mono);font-size:28px;letter-spacing:6px;color:var(--acc);direction:ltr;font-weight:700">
-        {{ confirm_code }}
-      </div>
-    </div>
-    <input type="text" id="confirmInput" class="input"
-           dir="ltr" maxlength="4"
-           style="text-align:center;font-family:var(--mono);font-size:18px;letter-spacing:4px;margin-top:14px"
-           placeholder="• • • •" autocomplete="off">
-    <div class="grid2" style="margin-top:16px">
-      <button class="btn btn-ghost" onclick="closeConfirmModal()">انصراف</button>
-      <button class="btn btn-acc" id="confirmBtn" onclick="executeConfirmed()">تأیید و اجرا</button>
-    </div>
-  </div>
-</div>
-
-<script nonce="{{ nonce }}">
-const MGMT_TOKEN = "{{ mgmt_token }}";
-const CSRF = "{{ csrf }}";
-let pendingAction = null;
-
-async function action(name) {
-  try {
-    const r = await fetch(`/api/manage/${MGMT_TOKEN}/${name}`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({csrf: CSRF})
-    });
-    const j = await r.json();
-    if (r.ok && j.ok) {
-      window.toast('✓ ' + j.msg);
-      setTimeout(() => location.reload(), 1200);
-    } else {
-      window.toast('✗ ' + (j.error || 'خطا'), 'err');
-    }
-  } catch (e) {
-    window.toast('✗ خطای شبکه', 'err');
-  }
-}
-
-function showConfirmModal(actionType) {
-  pendingAction = actionType;
-  const modal = document.getElementById('confirmModal');
-  const title = document.getElementById('confirmTitle');
-  const text = document.getElementById('confirmText');
-  const btn = document.getElementById('confirmBtn');
-
-  if (actionType === 'burn') {
-    title.textContent = '🔥 تأیید سوزاندن فایل';
-    text.innerHTML = 'این عملیات <strong>غیرقابل بازگشت</strong> است. فایل برای همیشه حذف می‌شود و قابل بازیابی نیست.';
-    btn.style.background = 'linear-gradient(135deg,#fb7185,#f43f5e)';
-    btn.textContent = 'تأیید و سوزاندن';
-  } else if (actionType === 'revoke') {
-    title.textContent = '🔄 تأیید صدور مجدد کد';
-    text.innerHTML = 'کد مدیریت فعلی <strong>بی‌اثر</strong> می‌شود و کد جدید صادر می‌گردد.';
-    btn.textContent = 'تأیید و صدور مجدد';
-  }
-
-  modal.style.display = 'flex';
-  document.getElementById('confirmInput').value = '';
-  setTimeout(() => document.getElementById('confirmInput').focus(), 100);
-}
-
-function closeConfirmModal() {
-  document.getElementById('confirmModal').style.display = 'none';
-  pendingAction = null;
-}
-
-async function executeConfirmed() {
-  const code = document.getElementById('confirmInput').value.trim();
-  if (code.length !== 4) {
-    window.toast('✗ کد ۴ رقمی را وارد کن', 'err');
-    return;
-  }
-  try {
-    const r = await fetch(`/api/manage/${MGMT_TOKEN}/${pendingAction}`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({csrf: CSRF, confirm_code: code})
-    });
-    const j = await r.json();
-    if (r.ok && j.ok) {
-      closeConfirmModal();
-      if (j.new_admin_code) {
-        window.toast('✓ کد جدید: ' + j.new_admin_code);
-      } else {
-        window.toast('✓ ' + j.msg);
-      }
-      setTimeout(() => location.reload(), 1800);
-    } else {
-      window.toast('✗ ' + (j.error || 'کد تأیید اشتباه است'), 'err');
-    }
-  } catch (e) {
-    window.toast('✗ خطای شبکه', 'err');
-  }
-}
-
-document.getElementById('confirmInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') executeConfirmed();
-  if (e.key === 'Escape') closeConfirmModal();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeConfirmModal();
-});
-
-
-async function exportData(type) {
-  try {
-    const r = await fetch(`/api/manage/${MGMT_TOKEN}/export/${type}`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({csrf: CSRF})
-    });
-    
-    if (r.ok) {
-      // دانلود فایل
-      const blob = await r.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = r.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `export_${type}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-      window.toast('✓ دانلود شروع شد');
-    } else {
-      const j = await r.json();
-      window.toast('✗ ' + (j.error || 'خطا در export'), 'err');
-    }
-  } catch (e) {
-    window.toast('✗ خطای شبکه', 'err');
-  }
-}
-
-</script>
-</div>
-<script nonce="{{ nonce }}">
-(function(){
-  var live = document.getElementById("mgmt-live");
-  if(!live) return;
-  function refresh(){
-    fetch(location.href, {credentials:"same-origin", headers:{"X-Mgmt-Poll":"1"}}).then(function(r){ return r.ok ? r.text() : null; }).then(function(html){
-      if(!html) return;
-      var doc = new DOMParser().parseFromString(html, "text/html");
-      var nl = doc.getElementById("mgmt-live");
-      if(nl && nl.innerHTML !== live.innerHTML){ live.innerHTML = nl.innerHTML; }
-    }).catch(function(){});
-  }
-  setInterval(refresh, 4000);
-  window.refresh = refresh;
-  document.addEventListener("submit", function(ev){
-    var f = ev.target;
-    if(!f || !f.action || f.action.indexOf("/api/manage/") === -1) return;
-    if(/\/(burn|revoke|copy_id)\/?$/.test(f.action)) return;
-    ev.preventDefault();
-    fetch(f.action, {method:"POST", body:new FormData(f), credentials:"same-origin"})
-      .then(function(){ refresh(); })
-      .catch(function(){});
-  });
-  function leaveNow(){
-    try {
-      var x = new XMLHttpRequest();
-      x.open("POST", "/manage/leave", false);
-      x.send();
-    } catch(e) {
-      try { navigator.sendBeacon("/manage/leave"); } catch(e2){}
-    }
-  }
-  window.addEventListener("pagehide", leaveNow);
-  window.addEventListener("beforeunload", leaveNow);
-})();
-</script>
-
-
+<!-- مودال step-up -->
 <div id="stepup-modal" style="display:none;position:fixed;inset:0;background:#000000b8;z-index:120;align-items:center;justify-content:center;padding:16px">
-  <div class="card pad" style="max-width:360px;width:100%">
+  <div class="card pad" style="max-width:380px;width:100%">
     <h3 style="font-size:16px;margin-bottom:8px">🔐 تأیید پله‌ای</h3>
     <p id="stepup-desc" style="color:var(--dim);font-size:12.5px;margin-bottom:10px"></p>
-<input class="input" id="stepup-code" inputmode="numeric" maxlength="6" placeholder="کد ۶ رقمی"
+    <div id="stepup-demo" class="badge badge-info" style="display:none;padding:8px;margin-bottom:10px;white-space:normal;line-height:1.7"></div>
+    <div id="stepup-err" class="alert alert-err" style="display:none"></div>
+    <input class="input" id="stepup-code" inputmode="numeric" maxlength="6" placeholder="کد ۶ رقمی"
            style="direction:ltr;text-align:center;letter-spacing:6px;font-family:var(--mono)">
     <button class="btn btn-acc btn-block" id="stepup-go" style="margin-top:10px">اجرای عملیات</button>
     <button class="btn btn-ghost btn-block" id="stepup-cancel" style="margin-top:6px">انصراف</button>
   </div>
 </div>
+
 <script nonce="{{ nonce }}">
 (function(){
-  var suForm = null;
-  function showErr(txt){ var e = document.getElementById("stepup-err"); e.style.display = "block"; e.textContent = txt; }
-  function hideErr(){ var e = document.getElementById("stepup-err"); e.style.display = "none"; }
-  document.addEventListener("submit", function(ev){
-    var f = ev.target;
-    if(!f || !f.action) return;
-    var m = f.action.match(/\/api\/manage\/[^/]+\/(burn|revoke|copy_id)\/?$/);
-    if(!m) return;
-    ev.preventDefault();
-    suForm = f;
+  var TOKEN = "{{ mgmt_token }}";
+  var CSRF  = "{{ confirm_code }}";
+  var current = null;
+
+  function showErr(t){ var e = document.getElementById("stepup-err"); e.textContent = t; e.style.display = "block"; }
+  function hideErr(){ document.getElementById("stepup-err").style.display = "none"; }
+
+  document.addEventListener("click", function(ev){
+    var b = ev.target.closest("button[data-action]");
+    if(!b) return;
+    current = b.dataset.action;
     hideErr();
     document.getElementById("stepup-code").value = "";
     document.getElementById("stepup-demo").style.display = "none";
-    document.getElementById("stepup-desc").textContent = m[1] === "burn"
-      ? "برای سوزاندن فایل، کد ارسال‌شده به شماره مالک را وارد کن."
-      : "برای باطل‌کردن کامل دسترسی، کد ارسال‌شده به شماره مالک را وارد کن.";
+    var msgs = {
+      pause: "برای مکث موقت فایل، کد ارسال‌شده به شماره مالک را وارد کن.",
+      resume: "برای ادامه دسترسی، کد ارسال‌شده به شماره مالک را وارد کن.",
+      copy_id: "برای کپی آیدی فایل، کد ارسال‌شده به شماره مالک را وارد کن.",
+      revoke: "برای باطل‌کردن کامل دسترسی، کد ارسال‌شده به شماره مالک را وارد کن.",
+      burn: "⚠️ سوزاندن فایل غیرقابل بازگشت است. کد ارسال‌شده به شماره مالک را وارد کن."
+    };
+    document.getElementById("stepup-desc").textContent = msgs[current] || "";
     document.getElementById("stepup-modal").style.display = "flex";
-    fetch(f.action, {method:"POST", body:new FormData(f), headers:{"X-Mgmt-Stepup":"issue"}, credentials:"same-origin"})
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if(j.ok && j.demo){ var d = document.getElementById("stepup-demo"); d.style.display = "block"; d.textContent = "📨 کد دمو: " + j.demo; }
-        else if(!j.ok){ showErr(j.error || "خطا در صدور کد"); }
-      }).catch(function(){ showErr("خطای ارتباط"); });
+
+    fetch("/api/manage/" + TOKEN + "/" + current, {
+      method:"POST", headers:{"X-Mgmt-Stepup":"issue"}, credentials:"same-origin"
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if(j.ok && j.demo){
+        var d = document.getElementById("stepup-demo");
+        d.style.display = "block";
+        d.textContent = "📨 کد دمو: " + j.demo;
+      } else if(!j.ok){
+        showErr(j.error || "خطا در صدور کد");
+      }
+    }).catch(function(){ showErr("خطای ارتباط"); });
   });
+
   document.getElementById("stepup-go").addEventListener("click", function(){
-    if(!suForm) return;
-    var fd = new FormData(suForm);
-    fd.set("code", document.getElementById("stepup-code").value.trim());
-    fetch(suForm.action, {method:"POST", body:fd, headers:{"X-Mgmt-Stepup":"verify"}, credentials:"same-origin", redirect:"manual"})
-      .then(function(r){
-        var ct = r.headers.get("content-type") || "";
-        if(ct.indexOf("json") !== -1){
-          return r.json().then(function(j){
-            if(j.ok){
-              document.getElementById("stepup-modal").style.display = "none";
-              if(j.uid){
-                var txt = j.uid;
-                if(navigator.clipboard){ navigator.clipboard.writeText(txt); }
-                alert("📋 آیدی فایل کپی شد: " + txt.slice(0,5) + "…");
-                if(window.refresh) window.refresh();
-              } else if(window.refresh){ window.refresh(); }
-            } else { showErr(j.error || "خطا"); }
-          });
+    if(!current) return;
+    var fd = new FormData();
+    fd.append("code", document.getElementById("stepup-code").value.trim());
+    fd.append("confirm_code", CSRF);
+    fetch("/api/manage/" + TOKEN + "/" + current, {
+      method:"POST", body:fd,
+      headers:{"X-Mgmt-Stepup":"verify"}, credentials:"same-origin"
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if(j.ok){
+        document.getElementById("stepup-modal").style.display = "none";
+        if(current === "copy_id" && j.uid){
+          if(navigator.clipboard) navigator.clipboard.writeText(j.uid);
+          alert("📋 آیدی فایل کپی شد: " + j.uid.slice(0,5) + "…");
         }
-        if(r.status === 302 || r.status === 200){
-          document.getElementById("stepup-modal").style.display = "none";
-          if(window.refresh) window.refresh();
-        } else {
-          return r.json().then(function(j){ showErr(j.error || "خطا"); });
-        }
-      }).catch(function(){ showErr("خطای ارتباط"); });
+        location.reload();
+      } else {
+        showErr(j.error || "خطا");
+      }
+    }).catch(function(){ showErr("خطای ارتباط"); });
   });
+
   document.getElementById("stepup-cancel").addEventListener("click", function(){
     document.getElementById("stepup-modal").style.display = "none";
   });

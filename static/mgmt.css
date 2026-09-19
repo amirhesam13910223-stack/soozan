@@ -129,3 +129,11 @@
 .mp-row .k{color:var(--dim);font-weight:600}
 .mp-row .v{font-family:var(--mono);font-weight:700;direction:ltr}
 .mp-row .v.fa{font-family:inherit;direction:rtl}
+
+/* ══ هدر هم‌رنگ کارت‌ها ══ */
+.mp-header{background:var(--card);border:1px solid var(--border);color:var(--fg);
+  box-shadow:0 4px 14px -6px #00000018}
+.mp-header::after{display:none}
+.mp-fname{color:var(--fg)}
+.mp-meta{color:var(--dim);opacity:1}
+.mp-uid{background:var(--bg);border:1px solid var(--border)}

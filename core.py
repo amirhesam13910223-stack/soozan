@@ -1104,3 +1104,26 @@ def client_ip() -> str:
         return request.remote_addr or "-"
     except RuntimeError:
         return "-"
+
+
+def real_status(rd, stg, disk_exists):
+    """وضعیت واقعی فایل: (کلید، برچسب فارسی، گروه رنگ)"""
+    import time as _tt
+    vc = rd.get("views_count") or 0
+    mv = int(stg.get("max_views") or 0)
+    now = _tt.time()
+    if rd.get("status") == "burned":
+        return "burned", "حذف شده (دستی) 🔥", "bad"
+    if not disk_exists:
+        return "burned", "حذف شده (دستی) 🔥", "bad"
+    if rd.get("status") in ("locked", "paused"):
+        return "locked", "قفل شده (موقت) 🔒", "warn"
+
+    if rd.get("expires_at") and now > float(rd["expires_at"]):
+        return "expired", "منقضی شده ⏳", "bad"
+    if mv and vc >= mv:
+        return "done", "مشاهده شده ✅", "ok"
+    vs = rd.get("view_started_at")
+    if vs and (now - float(vs)) < 3600:
+        return "viewing", "در حال مشاهده 👁", "ok"
+    return "active", "فعال 🟢", "ok"

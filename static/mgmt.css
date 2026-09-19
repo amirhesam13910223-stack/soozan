@@ -137,3 +137,5 @@
 .mp-fname{color:var(--fg)}
 .mp-meta{color:var(--dim);opacity:1}
 .mp-uid{background:var(--bg);border:1px solid var(--border)}
+
+.mp-fname{word-break:break-all;white-space:normal;line-height:1.6}

@@ -81,6 +81,29 @@ def _to_jalali(ts) -> str:
 
 
 
+def _real_status(rd, stg, disk_exists):
+    """وضعیت واقعی فایل بر اساس شرایط واقعی"""
+    import time as _tt
+    vc = rd.get("views_count") or 0
+    mv = int(stg.get("max_views") or 0)
+    now = _tt.time()
+    if rd.get("status") == "burned":
+        return "burned", "حذف شده (دستی) 🔥", "bad"
+    if not disk_exists:
+        return "burned", "حذف شده (دستی) 🔥", "bad"
+    if rd.get("status") in ("locked", "paused"):
+        return "locked", "قفل شده (موقت) 🔒", "warn"
+
+    if rd.get("expires_at") and now > float(rd["expires_at"]):
+        return "expired", "منقضی شده ⏳", "bad"
+    if mv and vc >= mv:
+        return "done", "مشاهده شده ✅", "ok"
+    vs = rd.get("view_started_at")
+    if vs and (now - float(vs)) < 3600:
+        return "viewing", "در حال مشاهده 👁", "ok"
+    return "active", "فعال 🟢", "ok"
+
+
 def _otp_eq(a: str, b: str) -> bool:
     if not a or not b:
         return False
@@ -250,9 +273,10 @@ def manage_panel(mgmt_token):
     ow = None
     if rd.get("owner_id"):
         with get_db() as c2:
-            ow = c2.execute("SELECT username AS un, phone AS ph FROM users WHERE id=?", (rd["owner_id"],)).fetchone()
+            ow = c2.execute("SELECT full_name AS un, phone AS ph FROM users WHERE id=?", (rd["owner_id"],)).fetchone()
     fp = rd.get("file_path")
-    if fp and _osx.path.exists(fp):
+    disk_exists = bool(fp and _osx.path.exists(fp))
+    if disk_exists:
         disk_fa = f"{_osx.path.getsize(fp) / 1024:.1f} KB"
     elif rd["status"] == "burned":
         disk_fa = "سوخته 🔥"
@@ -260,17 +284,20 @@ def manage_panel(mgmt_token):
         disk_fa = "حذف‌شده"
     mv = int(stg.get("max_views") or 0)
     vc = rd.get("views_count") or 0
-    pw_val = stg.get("password")
+    pw_val = next((stg[k] for k in ('password', 'pw', 'pass', 'pin', 'passcode', 'file_password') if stg.get(k)), None)
     has_pw = bool(pw_val)
     pw_is_hash = bool(pw_val) and re.fullmatch(r"[0-9a-fA-F]{32,128}", str(pw_val)) is not None
-    lock_n = int(stg.get("lock_after_wrong") or 0)
+    lock_n = next((int(stg[k]) for k in ('lock_after_wrong', 'max_wrong', 'wrong_limit', 'lock_after', 'lock_tries', 'max_wrong_pins', 'lock_after_tries') if stg.get(k)), 0)
+    st_real, st_fa, st_group = _real_status(rd, stg, disk_exists)
     dev_fa = "، ".join(((d["device"] or "نامشخص")[:24] + " ×" + str(d["c"])) for d in devs) or "—"
     file_info = {
         "uid": rd["uid"],
         "uid_short": rd["uid"][:5] + "…",
         "filename": rd["filename"],
         "status": rd["status"],
-        "status_fa": STATUS_FA.get(rd["status"], rd["status"]),
+        "status_real": st_real,
+        "status_group": st_group,
+        "status_fa": st_fa,
         "mime": rd.get("mime") or "—",
         "size_kb": round((rd.get("size_bytes") or 0) / 1024, 1),
         "views": vc,
@@ -281,13 +308,13 @@ def manage_panel(mgmt_token):
         "last_fa": _to_jalali(rd.get("lts")),
         "owner_fa": (ow["un"] + " · " + ow["ph"][:4] + "***" + ow["ph"][-2:]) if (ow and ow["ph"]) else (ow["un"] if ow else "—"),
         "disk_fa": disk_fa,
+        "disk_exists": disk_exists,
         "has_pw": has_pw,
         "pw_recoverable": has_pw and not pw_is_hash,
         "pw_fa": ("دارد 🔒" if has_pw else "ندارد") + ("" if (not has_pw or not pw_is_hash) else " (هش — غیرقابل بازیابی)"),
         "ok_count": vc,
         "bad_count": rd.get("wrong_pins") or 0,
         "lock_fa": f"بعد از {lock_n} رمز غلط" if lock_n else "خاموش",
-        "ip_fa": rd.get("viewer_ip") or "—",
         "exp_fa": _to_jalali(rd.get("expires_at")) if rd.get("expires_at") else "—",
         "dev_fa": dev_fa,
     }

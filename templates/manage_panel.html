@@ -24,7 +24,6 @@
     <div class="mp-row"><span class="k">رمز فایل</span><span class="v fa">{{ file_info.pw_fa }}</span></div>
     <div class="mp-row"><span class="k">حجم روی دیسک</span><span class="v fa">{{ file_info.disk_fa }}</span></div>
     <div class="mp-row"><span class="k">انقضا</span><span class="v fa">{{ file_info.exp_fa }}</span></div>
-    <div class="mp-row"><span class="k">آخرین IP بیننده</span><span class="v">{{ file_info.ip_fa }}</span></div>
   </div>
 
   <div class="mp-section">
@@ -44,17 +43,16 @@
   <div class="mp-section">
     <h3>⚡ عملیات سریع</h3>
     <button class="mp-btn" data-action="pause"
-            {% if file_info.status != 'active' %}disabled{% endif %}>⏸ مکث موقت</button>
+            {% if file_info.status != 'active' or not file_info.disk_exists %}disabled{% endif %}>⏸ مکث موقت</button>
     <button class="mp-btn mp-btn-primary" data-action="resume"
-            {% if file_info.status not in ('paused','locked') %}disabled{% endif %}>▶ ادامه دسترسی</button>
+            {% if file_info.status not in ('paused','locked') or not file_info.disk_exists %}disabled{% endif %}>▶ ادامه دسترسی</button>
   </div>
 
   <div class="mp-section">
     <h3>🔥 عملیات حساس <span style="font-size:11px;color:var(--dim);font-weight:500">(نیاز به کد ۶ رقمی)</span></h3>
     <button class="mp-btn" data-action="copy_id">📋 کپی مجدد آیدی فایل</button>
     {% if file_info.has_pw and file_info.pw_recoverable %}<button class="mp-btn" data-action="copy_pass">🔑 کپی رمز عبور فایل</button>{% endif %}
-    <button class="mp-btn" data-action="revoke">🚫 باطل‌کردن کامل دسترسی</button>
-    <button class="mp-btn mp-btn-danger" data-action="burn">🔥 سوزاندن کامل فایل</button>
+    <button class="mp-btn mp-btn-danger" data-action="burn" {% if not file_info.disk_exists %}disabled{% endif %}>🔥 سوزاندن کامل فایل</button>
   </div>
 
   <a href="/dashboard" class="mp-link">↩ بازگشت به داشبورد</a>
@@ -70,6 +68,11 @@
     </div>
     <div class="mp-modal-err" id="mp-err"></div>
     <input class="mp-modal-input" id="mp-code" inputmode="numeric" maxlength="6" placeholder="------">
+    <div id="mp-result" style="display:none;margin-top:10px">
+      <div id="mp-result-label" style="font-size:12px;color:var(--dim);margin-bottom:6px"></div>
+      <input class="mp-modal-input" id="mp-result-val" readonly style="font-size:14px;letter-spacing:1px">
+      <button class="mp-modal-go" id="mp-result-copy" style="margin-top:8px">📋 کپی</button>
+    </div>
     <button class="mp-modal-go" id="mp-go">اجرای عملیات ←</button>
     <button class="mp-modal-cancel" id="mp-cancel">انصراف</button>
   </div>
@@ -90,7 +93,7 @@
   function showErr(t){ errEl.textContent = t; errEl.style.display = "block"; }
   function hideErr(){ errEl.style.display = "none"; }
   function openModal(){ modal.style.display = "flex"; codeEl.value = ""; hideErr();
-    demoEl.style.display = "none"; setTimeout(function(){ codeEl.focus(); }, 50); }
+    demoEl.style.display = "none"; document.getElementById("mp-result").style.display = "none"; document.getElementById("mp-go").style.display = ""; setTimeout(function(){ codeEl.focus(); }, 50); }
   function closeModal(){ modal.style.display = "none"; }
 
   var MSGS = {
@@ -130,19 +133,31 @@
       headers:{"X-Mgmt-Stepup":"verify"}, credentials:"same-origin"
     }).then(function(r){ return r.json(); }).then(function(j){
       if(j.ok){
-        closeModal();
         if(j.uid || j.pw){
           var txt = j.uid || j.pw;
-          if(navigator.clipboard) navigator.clipboard.writeText(txt);
-          alert(j.uid ? ("📋 آیدی فایل کپی شد:\n" + txt) : ("🔑 رمز فایل کپی شد:\n" + txt));
+          document.getElementById("mp-result-label").textContent = j.uid ? "📋 آیدی فایل:" : "🔑 رمز عبور فایل:";
+          document.getElementById("mp-result-val").value = txt;
+          document.getElementById("mp-result").style.display = "block";
+          document.getElementById("mp-go").style.display = "none";
+          if(navigator.clipboard){ navigator.clipboard.writeText(txt).catch(function(){}); }
+        } else {
+          closeModal();
+          location.reload();
         }
-        location.reload();
       } else {
         showErr(j.error || "خطا");
       }
     }).catch(function(){ showErr("خطای ارتباط"); });
   });
 
+  document.getElementById("mp-result-copy").addEventListener("click", function(){
+    var inp = document.getElementById("mp-result-val");
+    inp.select();
+    if(inp.setSelectionRange) inp.setSelectionRange(0, 9999);
+    try { document.execCommand("copy"); } catch(e){}
+    if(navigator.clipboard) navigator.clipboard.writeText(inp.value);
+    this.textContent = "✅ کپی شد";
+  });
   document.getElementById("mp-cancel").addEventListener("click", closeModal);
   /* auto-refresh: داده در لحظه */
   setInterval(function(){ if(modal.style.display !== "flex") location.reload(); }, 20000);

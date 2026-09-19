@@ -1,7 +1,7 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
 {% block head %}<link rel="stylesheet" href="/static/mgmt.css">{% endblock %}
 {% block title %}سوزان — تأیید دومرحله‌ای{% endblock %}
-{% block body %}
+{% block app_content %}
 {% set otp_dead = error and ("باطل" in error or "منقضی" in error) %}
 
 

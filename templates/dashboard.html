@@ -26,10 +26,13 @@
   </style>
 
   <div class="stats">
-    <div class="stat c-acc" data-reveal><div class="num" data-count="{{ total_files }}">۰</div><div class="lbl">📁 کل فایل‌ها</div></div>
-    <div class="stat c-ok" data-reveal><div class="num" data-count="{{ active_files }}">۰</div><div class="lbl">● فعال</div></div>
-    <div class="stat c-bad" data-reveal><div class="num" data-count="{{ burned_files }}">۰</div><div class="lbl">💨 سوخته/منقضی</div></div>
-    <div class="stat c-info" data-reveal><div class="num" data-count="{{ total_views }}">۰</div><div class="lbl">👁 کل بازدیدها</div></div>
+    <div class="stat c-acc" data-reveal><div class="num" data-count="{{ stats.total }}">۰</div><div class="lbl">📁 کل فایل‌ها</div></div>
+    <div class="stat c-ok" data-reveal><div class="num" data-count="{{ stats.active }}">۰</div><div class="lbl">🟢 فعال</div></div>
+    <div class="stat c-ok" data-reveal><div class="num" data-count="{{ stats.done }}">۰</div><div class="lbl">✅ مشاهده‌شده</div></div>
+    <div class="stat c-acc" data-reveal><div class="num" data-count="{{ stats.locked }}">۰</div><div class="lbl">🔒 قفل موقت</div></div>
+    <div class="stat c-bad" data-reveal><div class="num" data-count="{{ stats.expired }}">۰</div><div class="lbl">⏳ منقضی</div></div>
+    <div class="stat c-bad" data-reveal><div class="num" data-count="{{ stats.burned }}">۰</div><div class="lbl">🔥 حذف شده (دستی)</div></div>
+    <div class="stat c-info" data-reveal><div class="num" data-count="{{ stats.views }}">۰</div><div class="lbl">👁 کل بازدیدها</div></div>
   </div>
 
   {% if files %}
@@ -43,9 +46,7 @@
           <div class="fname" style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.filename }}</div>
           <div class="fsub" style="color:var(--mute);font-size:12px">{{ f.uid[:10] }}… · {{ f.created_persian }} · 👁 {{ f.views_count }}</div>
         </div>
-        {% if f.status == 'active' %}<span class="badge b-ok">فعال</span>
-        {% elif f.status == 'burned' %}<span class="badge b-bad">سوخته</span>
-        {% else %}<span class="badge b-warn">متوقف</span>{% endif %}
+        <span class="badge b-{{ f.status_group_real | default('ok') if f.status_group_real != 'warn' else 'warn' }}">{{ f.status_fa_real | default('فعال 🟢') }}</span>
       </div>
       {% endfor %}
     </div>

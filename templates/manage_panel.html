@@ -15,12 +15,16 @@
   </div>
 
   {% if copy_result %}
-  <div class="mp-section" style="border-color:#3b82f6">
+<div id="copy-modal" style="display:flex;position:fixed;inset:0;background:#000000b8;backdrop-filter:blur(4px);z-index:130;align-items:center;justify-content:center;padding:16px">
+  <div class="mp-modal">
     <h3>{{ copy_result.label }}</h3>
-    <input class="mp-modal-input" id="cp-val" readonly value="{{ copy_result.value }}" style="font-size:14px;letter-spacing:1px">
-    <button class="mp-modal-go" id="cp-copy" style="margin-top:8px">📋 کپی</button>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:10px">نمایش ماسک‌شده است؛ با دکمه کپی، مقدار کامل به کلیپ‌بورد می‌رود.</p>
+    <input class="mp-modal-input" readonly value="{{ copy_result.masked }}" style="font-size:14px;letter-spacing:2px">
+    <button class="mp-modal-go" id="cp-copy" style="margin-top:10px">📋 کپی مقدار کامل</button>
+    <button class="mp-modal-cancel" id="cp-close">بستن</button>
   </div>
-  {% endif %}
+</div>
+{% endif %}
   {% if stepup_error %}
   <div class="mp-section" style="border-color:#ef4444">
     <h3 style="color:#ef4444">⚠️ خطا در عملیات</h3>
@@ -69,7 +73,6 @@
   <div class="mp-section">
     <h3>🔥 عملیات حساس <span style="font-size:11px;color:var(--dim);font-weight:500">(نیاز به کد ۶ رقمی)</span></h3>
     <button class="mp-btn" data-action="copy_id">📋 کپی مجدد آیدی فایل</button>
-    <button class="mp-btn" data-action="copy_pass">🔑 کپی رمز عبور فایل</button>
     <button class="mp-btn mp-btn-danger" data-action="burn" {% if not file_info.disk_exists %}disabled{% endif %}>🔥 سوزاندن کامل فایل</button>
   </div>
 
@@ -118,7 +121,6 @@
     pause:    "برای مکث موقت فایل، کد ارسال‌شده به شماره مالک را وارد کنید.",
     resume:   "برای ادامه دسترسی، کد ارسال‌شده به شماره مالک را وارد کنید.",
     copy_id:  "برای کپی آیدی فایل، کد ارسال‌شده به شماره مالک را وارد کنید.",
-    copy_pass:"برای کپی رمز عبور فایل، کد ارسال‌شده به شماره مالک را وارد کنید.",
     revoke:   "برای باطل‌کردن کامل دسترسی، کد ارسال‌شده به شماره مالک را وارد کنید.",
     burn:     "⚠️ سوزاندن فایل غیرقابل بازگشت است. کد ارسال‌شده به شماره مالک را وارد کنید."
   };
@@ -157,12 +159,16 @@
   });
 
   if(document.getElementById("cp-copy")) document.getElementById("cp-copy").addEventListener("click", function(){
-    var inp = document.getElementById("cp-val");
-    inp.select();
-    if(inp.setSelectionRange) inp.setSelectionRange(0, 9999);
-    try { document.execCommand("copy"); } catch(e){}
-    if(navigator.clipboard) navigator.clipboard.writeText(inp.value);
-    this.textContent = "✅ کپی شد";
+    var btn = this;
+    fetch("/manage/pickup", {method:"POST", credentials:"same-origin"}).then(function(r){ return r.json(); }).then(function(j){
+      if(j.value){
+        if(navigator.clipboard){ navigator.clipboard.writeText(j.value).then(function(){ btn.textContent = "✅ کپی شد"; }, function(){ btn.textContent = "✅ کپی شد"; }); }
+        else { btn.textContent = "✅ کپی شد"; }
+      } else { btn.textContent = "❌ منقضی شد"; }
+    });
+  });
+  if(document.getElementById("cp-close")) document.getElementById("cp-close").addEventListener("click", function(){
+    document.getElementById("copy-modal").style.display = "none";
   });
   document.getElementById("mp-cancel").addEventListener("click", closeModal);
   /* auto-refresh: داده در لحظه */

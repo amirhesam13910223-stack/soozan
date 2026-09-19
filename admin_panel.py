@@ -82,6 +82,8 @@ def _to_jalali(ts) -> str:
 
 
 
+
+
 def _otp_eq(a: str, b: str) -> bool:
     if not a or not b:
         return False
@@ -394,7 +396,7 @@ def _run_action(action: str, file_id: int):
 
 @bp.post("/api/manage/<mgmt_token>/<action>")
 def mgmt_action(mgmt_token, action):
-    if action not in ("pause", "resume", "burn", "revoke", "copy_id", "copy_pass"):
+    if action not in ("pause", "resume", "burn", "revoke", "copy_id"):
         return jsonify(ok=False, error="اکشن ناشناخته"), 404
     deny = _stepup_flow(action, mgmt_token)
     if deny:
@@ -406,7 +408,7 @@ def mgmt_action(mgmt_token, action):
 @bp.route("/manage/stepup/<mgmt_token>/<action>", methods=["GET", "POST"])
 def manage_stepup(mgmt_token, action):
     """صفحه کد ۶ رقمی برای عملیات‌ها — دقیقاً همان صفحه ورود پنل"""
-    if action not in ("pause", "resume", "burn", "copy_id", "copy_pass"):
+    if action not in ("pause", "resume", "burn", "copy_id"):
         return redirect(url_for("admin_panel.manage_enter"))
     info = verify_mgmt_token(mgmt_token)
     if not info:
@@ -419,7 +421,6 @@ def manage_stepup(mgmt_token, action):
         "resume": "▶ درخواست ادامه دسترسی فایل",
         "burn": "🔥 درخواست سوزاندن کامل فایل (غیرقابل بازگشت)",
         "copy_id": "📋 درخواست کپی مجدد آیدی فایل",
-        "copy_pass": "🔑 درخواست کپی رمز عبور فایل",
     }
     kw = {"otp_action": request.path, "otp_desc": DESCS[action], "otp_submit": "اجرای عملیات ←"}
 
@@ -480,15 +481,25 @@ def manage_stepup(mgmt_token, action):
         if not data.get("ok"):
             err = data.get("error")
         elif action == "copy_id":
-            session["stepup_result"] = {"label": "📋 آیدی فایل:", "value": data.get("uid", "")}
-        elif action == "copy_pass":
-            session["stepup_result"] = {"label": "🔑 رمز عبور فایل:", "value": data.get("pw", "")}
+            uid_v = data.get("uid", "")
+            session["pw_pickup"] = {"value": uid_v, "exp": _t.time() + 120}
+            session["stepup_result"] = {"label": "📋 آیدی کامل فایل:", "value": "", "masked": (uid_v[:5] + "••••••" + uid_v[-4:]) if len(uid_v) > 9 else "•" * len(uid_v), "pickup": True}
         else:
             session["stepup_result"] = {"label": "✅ عملیات انجام شد", "value": {"pause": "فایل موقتاً متوقف شد", "resume": "دسترسی فایل ادامه یافت", "burn": "فایل سوخته شد"}.get(action, "")}
     if err:
         session["stepup_error"] = err
     return redirect(f"/manage/panel/{mgmt_token}")
 
+
+
+@bp.post("/manage/pickup")
+def manage_pickup():
+    """رمز را یک‌بار از session می‌دهد (هرگز در HTML نمی‌آید)"""
+    pk = session.pop("pw_pickup", None)
+    if not pk or _t.time() > pk["exp"]:
+        return jsonify(ok=False, error="منقضی شد"), 401
+    audit("MGMT_PW_PICKUP", client_ip())
+    return jsonify(ok=True, value=pk["value"])
 
 
 def register(app):

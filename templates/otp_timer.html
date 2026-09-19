@@ -1,6 +1,7 @@
 <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0">
-  {% if not (error and "باطل" in error) %}<span id="otp-timer" class="badge badge-warn" style="font-family:var(--mono);direction:ltr;display:inline-block;padding:7px 12px">02:00</span>{% endif %}
-  <form method="post" action="{{ request.path }}" style="margin:0"><input type="hidden" name="resend" value="1">
+  {% set otp_dead = error and ("باطل" in error or "منقضی" in error) %}
+  {% if not otp_dead %}<span id="otp-timer" class="badge badge-warn" style="font-family:var(--mono);direction:ltr;display:inline-block;padding:7px 12px">02:00</span>{% endif %}
+  <form id="resend-form" method="post" action="{{ request.path }}" style="margin:0;{% if not otp_dead %}display:none{% endif %}"><input type="hidden" name="resend" value="1">
     <button type="submit" class="btn btn-ghost" style="padding:7px 14px;font-size:12.5px">🔄 ارسال مجدد</button>
   </form>
 </div>
@@ -9,7 +10,7 @@
   var left = 120;
   var el = document.getElementById("otp-timer");
   function tick(){
-    if(left <= 0){ if(el){ el.style.display = "none"; } return; }
+    if(left <= 0){ if(el){ el.style.display = "none"; } var rf = document.getElementById("resend-form"); if(rf){ rf.style.display = ""; } return; }
     if(el){ el.style.display = ""; el.textContent = String(Math.floor(left/60)).padStart(2,"0") + ":" + String(left%60).padStart(2,"0"); }
     left -= 1;
     setTimeout(tick, 1000);

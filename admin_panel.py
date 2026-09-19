@@ -313,6 +313,51 @@ def manage_leave():
         session["mgmt_consumed"] = act
     return "ok"
 
+
+
+@bp.post("/api/manage/<mgmt_token>/copy_id")
+def mgmt_copy_id(mgmt_token):
+    """کپی مجدد آیدی فایل با تأیید پله‌ای"""
+    import time as _tc, secrets as _sc, os as _oc
+    mode = request.headers.get("X-Mgmt-Stepup", "")
+    if mode == "issue":
+        tv = verify_mgmt_token(mgmt_token)
+        if not tv:
+            return jsonify(ok=False, error="توکن نامعتبر"), 403
+        phone = ""
+        with get_db() as c:
+            ow = c.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (tv["file_id"],)).fetchone()
+        if ow and ow["phone"]:
+            phone = ow["phone"]
+        if not phone:
+            return jsonify(ok=False, error="شماره مالک یافت نشد"), 403
+        code = f"{_sc.randbelow(1000000):06d}"
+        session["mgmt_stepup"] = {"token": mgmt_token, "action": "copy_id", "code": code, "exp": _tc.time() + 120, "tries": 0}
+        DEV = _oc.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes")
+        return jsonify(ok=True, demo=code if DEV else None)
+    if mode != "verify":
+        return jsonify(ok=False, error="تأیید پله‌ای لازم است"), 403
+    st = session.get("mgmt_stepup")
+    if not st or st["token"] != mgmt_token or st["action"] != "copy_id":
+        return jsonify(ok=False, error="اول کد را درخواست کن"), 403
+    if _tc.time() > st["exp"]:
+        session.pop("mgmt_stepup", None)
+        return jsonify(ok=False, error="کد منقضی شد"), 401
+    code = (request.form.get("code") or "").strip()
+    if not _otp_eq(code, st["code"]):
+        st["tries"] = st.get("tries", 0) + 1
+        if st["tries"] >= 4:
+            session.pop("mgmt_stepup", None)
+            return jsonify(ok=False, error="کد باطل شد"), 401
+        session["mgmt_stepup"] = st
+        return jsonify(ok=False, error="کد صحیح نیست"), 401
+    session.pop("mgmt_stepup", None)
+    tv = verify_mgmt_token(mgmt_token)
+    with get_db() as c:
+        row = c.execute("SELECT uid FROM files WHERE id=?", (tv["file_id"],)).fetchone()
+    audit("MGMT_COPY_ID", client_ip())
+    return jsonify(ok=True, uid=row["uid"] if row else "", link=f"/i/{row['uid']}" if row else "")
+
 # ─── رندر پنل مدیریت ─────────────────────────────
 
 
@@ -326,7 +371,7 @@ def manage_panel(mgmt_token):
     
     file_id = info["file_id"]
     csrf = info["csrf"]
-    confirm_code = f"{secrets.randbelow(10000):04d}"
+    confirm_code = _hmac.new(_derive_mgmt_key(), mgmt_token.encode(), "sha256").hexdigest()[:16]
     is_poll = request.headers.get("X-Mgmt-Poll") == "1"
     if session.get("mgmt_rendered") == mgmt_token and not is_poll:
         return redirect(url_for("admin_panel.manage_enter_page"))
@@ -527,7 +572,7 @@ def mgmt_burn(mgmt_token):
     info, err = _validate_action(mgmt_token, body.get("csrf"))
     if err: return err
     
-    confirm_code = body.get("confirm_code")
+    confirm_code = (body.get("confirm_code") if body else None) or request.form.get("confirm_code")
     expected = session.get('mgmt_confirm_code')
     if not confirm_code or not expected or confirm_code != expected:
         audit("MANAGE_BURN_BAD_CONFIRM", ip, level="WARN")
@@ -598,7 +643,7 @@ def mgmt_revoke(mgmt_token):
     info, err = _validate_action(mgmt_token, body.get("csrf"))
     if err: return err
     
-    confirm_code = body.get("confirm_code")
+    confirm_code = (body.get("confirm_code") if body else None) or request.form.get("confirm_code")
     expected = session.get('mgmt_confirm_code')
     if not confirm_code or not expected or confirm_code != expected:
         audit("MANAGE_REVOKE_BAD_CONFIRM", ip, level="WARN")

@@ -7,17 +7,14 @@
 <div class="mp-wrap">
   <div class="mp-header">
     <div class="mp-fname">{{ file_info.filename }}
-      <span class="mp-badge {% if file_info.status == 'active' %}mp-b-ok{% elif file_info.status in ('paused','locked') %}mp-b-warn{% else %}mp-b-bad{% endif %}">
-        {{ file_info.status_fa }}
-      </span>
+      {% set bcol = {'active':'#22c55e','viewing':'#3b82f6','done':'#ef4444','locked':'#f59e0b','paused':'#f59e0b','burned':'#ef4444','gone':'#ef4444','expired':'#ef4444'} %}<span class="mp-badge" style="color:{{ bcol[file_info.status_real] | default('#94a3b8') }};background:{{ bcol[file_info.status_real] | default('#94a3b8') }}22">{{ file_info.status_fa }}</span>
+      
     </div>
     <div class="mp-meta">{{ file_info.mime }} · {{ file_info.size_kb }} KB</div>
   </div>
 
   {% if file_info.status_group == 'bad' %}
-  <div class="mp-section" style="border-color:#ef4444">
-    <h3 style="color:#ef4444">⚠️ این فایل دیگر موجود نیست</h3>
-  </div>
+  <div class="mp-dead">⚠️ این فایل دیگر موجود نیست</div>
   {% endif %}
   {% if copy_result %}
 <div id="copy-modal" style="display:flex;position:fixed;inset:0;background:#000000b8;backdrop-filter:blur(4px);z-index:130;align-items:center;justify-content:center;padding:16px">

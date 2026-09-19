@@ -369,6 +369,15 @@ def _run_action(action: str, file_id: int):
         if not row:
             return jsonify(ok=False, error="فایل یافت نشد"), 404
         st = row["status"]
+        from core import real_status as _rs2
+        import json as _js3
+        try:
+            _stg3 = _js3.loads(row["settings"] or "{}")
+        except Exception:
+            _stg3 = {}
+        _k3, _f3, _g3, _d3 = _rs2(dict(row), _stg3, bool(row["file_path"] and Path(row["file_path"]).exists()))
+        if _g3 == "bad":
+            return jsonify(ok=False, error="این فایل دیگر موجود نیست"), 409
         if action == "pause":
             if st != "active":
                 return jsonify(ok=False, error="فایل فعال نیست"), 400

@@ -105,6 +105,10 @@ def dashboard():
         _r["status_group_real"] = _grp
         _r["status_detail"] = _det
         _r["status_key_real"] = _k
+        try:
+            _r["created_persian"] = _persian_time(_r["created_at"]) if _r.get("created_at") else "—"
+        except Exception:
+            _r["created_persian"] = "—"
         _fl.append(_r)
         _stats["total"] += 1
         _stats[_k] = _stats.get(_k, 0) + 1

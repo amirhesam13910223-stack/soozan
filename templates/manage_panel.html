@@ -14,6 +14,11 @@
     <div class="mp-meta">{{ file_info.mime }} · {{ file_info.size_kb }} KB</div>
   </div>
 
+  {% if file_info.status_group == 'bad' %}
+  <div class="mp-section" style="border-color:#ef4444">
+    <h3 style="color:#ef4444">⚠️ این فایل دیگر موجود نیست</h3>
+  </div>
+  {% endif %}
   {% if copy_result %}
 <div id="copy-modal" style="display:flex;position:fixed;inset:0;background:#000000b8;backdrop-filter:blur(4px);z-index:130;align-items:center;justify-content:center;padding:16px">
   <div class="mp-modal">
@@ -52,7 +57,6 @@
     <h3>🔑 تلاش‌های دسترسی</h3>
     <div class="mp-row"><span class="k">موفق</span><span class="v" style="color:#22c55e">{{ file_info.ok_count }}</span></div>
     <div class="mp-row"><span class="k">ناموفق</span><span class="v" style="color:#ef4444">{{ file_info.bad_count }}</span></div>
-    <div class="mp-row"><span class="k">قفل خودکار</span><span class="v fa">{{ file_info.lock_fa }}</span></div>
   </div>
 
   <div class="mp-section">
@@ -65,15 +69,15 @@
   <div class="mp-section">
     <h3>⚡ عملیات سریع</h3>
     <button class="mp-btn" data-action="pause"
-            {% if file_info.status != 'active' or not file_info.disk_exists %}disabled{% endif %}>⏸ مکث موقت</button>
+            {% if file_info.status != 'active' or not file_info.disk_exists or file_info.status_group == 'bad' %}disabled{% endif %}>⏸ مکث موقت</button>
     <button class="mp-btn mp-btn-primary" data-action="resume"
-            {% if file_info.status not in ('paused','locked') or not file_info.disk_exists %}disabled{% endif %}>▶ ادامه دسترسی</button>
+            {% if file_info.status not in ('paused','locked') or not file_info.disk_exists or file_info.status_group == 'bad' %}disabled{% endif %}>▶ ادامه دسترسی</button>
   </div>
 
   <div class="mp-section">
     <h3>🔥 عملیات حساس <span style="font-size:11px;color:var(--dim);font-weight:500">(نیاز به کد ۶ رقمی)</span></h3>
-    <button class="mp-btn" data-action="copy_id">📋 کپی مجدد آیدی فایل</button>
-    <button class="mp-btn mp-btn-danger" data-action="burn" {% if not file_info.disk_exists %}disabled{% endif %}>🔥 سوزاندن کامل فایل</button>
+    <button class="mp-btn" data-action="copy_id" {% if file_info.status_group == 'bad' %}disabled{% endif %}>📋 کپی مجدد آیدی فایل</button>
+    <button class="mp-btn mp-btn-danger" data-action="burn" {% if not file_info.disk_exists or file_info.status_group == 'bad' %}disabled{% endif %}>🔥 سوزاندن کامل فایل</button>
   </div>
 
   <a href="/dashboard" class="mp-link">↩ بازگشت به داشبورد</a>

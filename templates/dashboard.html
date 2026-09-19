@@ -1,4 +1,5 @@
 {% extends "app.html" %}
+{% block head %}<link rel="stylesheet" href="/static/dash.css">{% endblock %}
 {% block title %}داشبورد — سوزان{% endblock %}
 
 {% block app_content %}
@@ -35,18 +36,21 @@
   {% if files %}
     <div class="files">
       {% for f in files %}
-      <div class="frow" data-reveal>
-        <div class="fic" style="width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--acc-soft);flex-shrink:0">
-          {% if f.family == "عکس" %}🖼️{% elif f.family == "صوت" %}🎵{% elif f.family == "PDF" %}📕{% else %}📝{% endif %}
+    <div class="dash-file" data-reveal>
+      <div class="df-top">
+        <div class="df-name">{{ f.filename }}</div>
+        <div class="df-badges">
+          <span class="badge b-{{ f.status_group_real | default('ok') }}" title="{{ f.status_detail }}">{{ f.status_fa_real | default('فعال 🟢') }}</span>
+          {% if f.status_key_real == 'done' %}<span class="badge b-ok">مشاهده شد ✅</span>{% endif %}
         </div>
-        <div class="fmeta">
-          <div class="fname" style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.filename }}</div>
-          <div class="fsub" style="color:var(--mute);font-size:12px">{{ f.uid[:10] }}… · {{ f.created_persian }} · 👁 {{ f.views_count }}</div>
-        </div>
-        <span class="badge b-{{ f.status_group_real | default('ok') }}" title="{{ f.status_detail }}">{{ f.status_fa_real | default('فعال 🟢') }}</span>
-        {% if f.status_key_real == 'done' %}<span class="badge b-ok" style="margin-right:4px">مشاهده شد ✅</span>{% endif %}
       </div>
-      {% endfor %}
+      <div class="df-meta">
+        <span class="df-uid">{{ f.uid[:8] }}…</span>
+        <span>👁 {{ f.views_count or 0 }}</span>
+        <span>🕒 {{ f.created_persian | default('—') }}</span>
+      </div>
+    </div>
+    {% endfor %}
     </div>
   {% else %}
     <div class="card empty" data-reveal>

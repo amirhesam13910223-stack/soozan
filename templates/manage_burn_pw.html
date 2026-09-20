@@ -1,0 +1,18 @@
+{% extends "app.html" %}
+{% block head %}<link rel="stylesheet" href="/static/mgmt.css">{% endblock %}
+{% block title %}سوزان — سوزاندن فایل{% endblock %}
+{% block app_content %}
+<div class="mp-wrap">
+  <div class="mf-card">
+    <div class="mf-icon" style="background:linear-gradient(135deg,#ef4444,#f97316)">🔥</div>
+    <h3 class="mf-title">سوزاندن فایل — مرحله ۱ از ۲</h3>
+    <p class="mf-sub">این عملیات فایل را می‌سوزاند و تا ۱ ساعت در سطل بازیافت نگه می‌دارد.<br>اول <b>رمز عبور حساب مالک</b> را وارد کن.</p>
+    {% if pw_error %}<div class="mf-err">⚠️ {{ pw_error }}</div>{% endif %}
+    <form method="post">
+      <input class="mf-num" type="password" name="password" placeholder="رمز عبور حساب" style="letter-spacing:2px">
+      <button class="mf-go" type="submit">ادامه به تأیید پیامکی ←</button>
+      <a class="mf-cancel" href="/manage/panel/{{ mgmt_token }}">انصراف</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

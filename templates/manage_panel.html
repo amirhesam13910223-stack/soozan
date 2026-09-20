@@ -47,11 +47,11 @@
   {% if file_info.exp_ts %}
   <div class="mp-section">
     <h3>⏳ زمان تا انقضا</h3>
-    <div id="exp-count" data-exp="{{ file_info.exp_ts }}" data-dead="{{ 1 if file_info.status_group == 'bad' else 0 }}" data-created="{{ file_info.created_ts }}" style="font-family:var(--mono);font-size:19px;font-weight:800;direction:ltr;text-align:center"></div>
-    <div class="ot-progress" style="margin-top:12px"><div class="ot-progress-bar" id="exp-bar"></div></div>
+    <div id="exp-count" class="exp-num" data-exp="{{ file_info.exp_ts }}" data-now="{{ file_info.now_ts }}" data-dead="{{ '1' if file_info.status_group == 'bad' else '0' }}">—</div>
+    <div class="exp-bar-wrap"><div id="exp-bar" class="exp-bar" style="width:100%"></div></div>
   </div>
   {% endif %}
-  <div class="mp-section">
+<div class="mp-section">
     <h3>📜 لاگ مشاهده</h3>
     {% if views_rows %}
     <div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">
@@ -119,7 +119,7 @@
     <p style="font-size:11.5px;color:var(--dim);margin:0 0 10px">پس از سوزاندن، فایل رمزنگاری‌شده تا ۱ ساعت در سطل بازیافت می‌ماند و قابل بازگشت است.</p>
     <button class="mp-btn" data-action="edit_capacity" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ تغییر ظرفیت بازدید</button>
     <button class="mp-btn" data-action="edit_expiry" {% if file_info.status_group == 'bad' %}disabled{% endif %}>⏳ تغییر زمان انقضا</button>
-    {% if file_info.trash %}<button class="mp-btn mp-btn-primary" id="btn-restore">📥 بازیابی فایل ({{ file_info.trash.left_min }} دقیقه مانده)</button>
+    {% if file_info.restore_left %}<button class="mp-btn mp-btn-primary" id="btn-restore">📥 بازیابی فایل ({{ file_info.restore_left }} دقیقه مانده)</button>
     {% else %}<button class="mp-btn" disabled>📥 بازیابی فایل</button>{% endif %}
     <button class="mp-btn" data-action="revoke_sessions">🚪 خروج از همه نشست‌های مدیریت</button>
     <button class="mp-btn" data-action="copy_id" {% if file_info.status_group == 'bad' %}disabled{% endif %}>📋 کپی مجدد آیدی فایل</button>
@@ -159,5 +159,30 @@ document.addEventListener("click", function(ev){
 });
 var rb = document.getElementById("btn-restore");
 if(rb) rb.addEventListener("click", function(){ location.href = "/manage/restore/{{ mgmt_token }}"; });
+</script>
+
+<script nonce="{{ nonce }}">
+(function(){
+  var el = document.getElementById("exp-count");
+  if(!el) return;
+  var bar = document.getElementById("exp-bar");
+  var exp = parseFloat(el.getAttribute("data-exp"));
+  var srv = parseFloat(el.getAttribute("data-now"));
+  var t0 = Date.now() / 1000;
+  function pad(n){ return String(n).padStart(2, "0"); }
+  function dead(){ el.textContent = "منقضی شده — 00:00:00"; el.classList.add("exp-dead"); if(bar) bar.style.width = "0%"; }
+  if(!exp || isNaN(exp)){ el.textContent = "بدون انقضا ∞"; return; }
+  if(el.getAttribute("data-dead") === "1"){ dead(); return; }
+  function left(){ return exp - (srv + (Date.now() / 1000 - t0)); }
+  function tick(){
+    var L = left();
+    if(L <= 0){ dead(); return; }
+    var d = Math.floor(L / 86400), h = Math.floor(L % 86400 / 3600), m = Math.floor(L % 3600 / 60), s2 = Math.floor(L % 60);
+    el.textContent = (d ? d + " روز و " : "") + pad(h) + ":" + pad(m) + ":" + pad(s2);
+    if(bar) bar.style.width = Math.min(100, (L / Math.max(L, 3600)) * 100) + "%";
+    setTimeout(tick, 1000);
+  }
+  tick();
+})();
 </script>
 {% endblock %}

@@ -136,6 +136,37 @@ def _trash_info(uid):
     except Exception:
         return None
 
+def _restore_left(rd, trash):
+    """دقیقه باقی‌مانده پنجره ۱ ساعته بازیابی پس از غیرفعال‌شدن"""
+    if _meta_get("restore_used_" + str(rd.get("uid"))):
+        return None
+    if trash:
+        return trash.get("left_min")
+    now = _t.time()
+    st = rd.get("status")
+    vc = rd.get("views_count") or 0
+    try:
+        stg = __import__("json").loads(rd.get("settings") or "{}")
+    except Exception:
+        stg = {}
+    mv = int(stg.get("max_views") or 0)
+    if st == "burned":
+        return None
+    if mv and vc >= mv:
+        with get_db() as c:
+            r = c.execute("SELECT MAX(viewed_at) AS t FROM views WHERE file_id=?", (rd["id"],)).fetchone()
+        last = r["t"] if r and r["t"] else None
+        if last:
+            left = (float(last) + 3600 - now) / 60
+            return max(1, int(left)) if left > 0 else None
+        return None
+    if rd.get("expires_at") and now > float(rd["expires_at"]):
+        left = (float(rd["expires_at"]) + 3600 - now) / 60
+        return max(1, int(left)) if left > 0 else None
+    return None
+
+
+
 
 def _otp_eq(a: str, b: str) -> bool:
     if not a or not b:
@@ -321,6 +352,15 @@ def manage_panel(mgmt_token):
     has_pw = bool(pw_val)
     pw_is_hash = bool(pw_val) and re.fullmatch(r"[0-9a-fA-F]{32,128}", str(pw_val)) is not None
     lock_n = next((int(stg[k]) for k in ('lock_after_wrong', 'max_wrong', 'wrong_limit', 'lock_after', 'lock_tries', 'max_wrong_pins', 'lock_after_tries') if stg.get(k)), 0)
+    _sz = rd.get("size_bytes") or 0
+    if not _sz:
+        _fp = rd.get("file_path")
+        _cand = Path(_fp) if (_fp and Path(_fp).exists()) else (TRASH / (rd["uid"] + ".enc"))
+        if _cand.exists():
+            _sz = max(0, _cand.stat().st_size - 28)
+            with get_db() as _cs:
+                _cs.execute("UPDATE files SET size_bytes=? WHERE id=?", (_sz, rd["id"]))
+        rd["size_bytes"] = _sz
     st_real, st_badge, st_group, st_detail = real_status(rd, stg, disk_exists)
     dev_fa = "، ".join(((d["device"] or "نامشخص")[:24] + " ×" + str(d["c"])) for d in devs) or "—"
     file_info = {
@@ -355,8 +395,10 @@ def manage_panel(mgmt_token):
         "intro": stg.get("intro_message") or "",
         "endm": stg.get("end_message") or "",
         "exp_ts": rd.get("expires_at") or 0,
+        "now_ts": _t.time(),
         "created_ts": rd.get("created_at") or 0,
         "trash": _trash_info(rd["uid"]),
+        "restore_left": _restore_left(rd, _trash_info(rd["uid"])),
     }
     _purge_trash()
     with get_db() as c4:
@@ -464,7 +506,7 @@ def _run_action(action: str, file_id: int):
         except Exception:
             _stg3 = {}
         _k3, _f3, _g3, _d3 = _rs2(dict(row), _stg3, bool(row["file_path"] and Path(row["file_path"]).exists()))
-        if _g3 == "bad":
+        if _g3 == "bad" and action not in ("revoke_sessions",):
             return jsonify(ok=False, error="این فایل دیگر موجود نیست"), 409
         if action == "pause":
             if st != "active":
@@ -606,6 +648,11 @@ def manage_stepup(mgmt_token, action):
         session.pop("restore_pw_ok", None)
         session["restore_dl"] = {"token": mgmt_token, "exp": _t.time() + 120}
         return redirect(f"/manage/restore_dl_page/{mgmt_token}")
+    if action == "burn":
+        pwok = session.get("burn_pw_ok")
+        if not pwok or pwok["token"] != mgmt_token or _t.time() > pwok["exp"]:
+            return redirect(f"/manage/burn_pw/{mgmt_token}")
+        session.pop("burn_pw_ok", None)
     rv = _run_action(action, fid)
     err = None
     if isinstance(rv, tuple):
@@ -654,23 +701,39 @@ def _find_pw_verifier():
     return None, None
 
 
+def _discover_verifiers():
+    """کشف خودکار تابع بررسی رمز خود اپلیکیشن (auth/core)"""
+    out = []
+    for mod in ("auth", "core"):
+        pf = Path(__file__).parent / (mod + ".py")
+        if not pf.exists():
+            continue
+        src = pf.read_text(encoding="utf-8")
+        for m in re.finditer(r"def (\w+)\(([^)]*)\):", src):
+            body = src[m.end():m.end() + 800]
+            if "scrypt" not in body:
+                continue
+            args = [a.strip().split("=")[0].strip() for a in m.group(2).split(",") if a.strip()]
+            out.append((mod, m.group(1), args))
+    return out
+
+
+_VERIFIERS = _discover_verifiers()
+
+
 def _check_account_pw(user_row, password):
-    import hashlib as _hl, hmac as _hm2
-    stored = user_row["pw_hash"] or ""
-    salt = user_row["salt"] or ""
-    parts = stored.split("$")
+    """بررسی رمز حساب: دقیقاً مثل Auth.login — با Scrypt رسمی core"""
+    import hmac as _hmc
+    from core import Auth
+    ph = user_row["pw_hash"]
+    sa = user_row["salt"]
+    if not ph or not sa:
+        return False
     try:
-        if len(parts) == 3 and parts[0] == "scrypt":
-            salt_b = bytes.fromhex(parts[1])
-            want = parts[2]
-        else:
-            salt_b = bytes.fromhex(salt) if salt else b""
-            want = stored
-        got = _hl.scrypt(password.encode(), salt=salt_b, n=16384, r=8, p=1, dklen=32).hex()
-        return _hm2.compare_digest(got, want)
+        calc = Auth._hash(password, bytes(sa))
+        return _hmc.compare_digest(calc, bytes(ph))
     except Exception:
         return False
-
 
 @bp.route("/manage/restore/<mgmt_token>", methods=["GET", "POST"])
 def manage_restore_pw(mgmt_token):
@@ -678,18 +741,33 @@ def manage_restore_pw(mgmt_token):
     if not info:
         return redirect(url_for("admin_panel.manage_enter"))
     with get_db() as c:
-        row = c.execute("SELECT uid, owner_id FROM files WHERE id=?", (info["file_id"],)).fetchone()
-    if not row or not _trash_info(row["uid"]):
+        row = c.execute("SELECT id, uid, owner_id, status, views_count, settings, expires_at, file_path FROM files WHERE id=?", (info["file_id"],)).fetchone()
+    if not row:
+        return redirect(url_for("admin_panel.manage_enter"))
+    rd = dict(row)
+    left = _restore_left(rd, _trash_info(rd["uid"]))
+    if not left:
         return redirect(f"/manage/panel/{mgmt_token}")
     tpl = (Path(__file__).parent / "templates" / "manage_restore_pw.html").read_text(encoding="utf-8")
     if request.method == "GET":
         return _render(tpl, mgmt_token=mgmt_token, pw_error=None)
     pw = request.form.get("password") or ""
     with get_db() as c:
-        u = c.execute("SELECT pw_hash, salt FROM users WHERE id=?", (row["owner_id"],)).fetchone()
+        u = c.execute("SELECT pw_hash, salt FROM users WHERE id=?", (rd["owner_id"],)).fetchone()
+    rl = session.get("restore_rl") or {"n": 0, "until": 0, "uid": ""}
+    if rl.get("uid") == rd["uid"] and _t.time() < rl["until"]:
+        audit("RESTORE_PW_LOCKED", client_ip())
+        return _render(tpl, mgmt_token=mgmt_token, pw_error="۵ تلاش غلط؛ بازیابی این فایل ۱ دقیقه قفل است"), 429
     if not u or not _check_account_pw(u, pw):
-        audit("RESTORE_PW_WRONG", client_ip(), level="WARN") if False else audit("RESTORE_PW_WRONG", client_ip())
+        if rl.get("uid") != rd["uid"]:
+            rl = {"n": 0, "until": 0, "uid": rd["uid"]}
+        rl["n"] = rl.get("n", 0) + 1
+        if rl["n"] >= 5:
+            rl = {"n": 0, "until": _t.time() + 60, "uid": rd["uid"]}
+        session["restore_rl"] = rl
+        audit("RESTORE_PW_WRONG", client_ip())
         return _render(tpl, mgmt_token=mgmt_token, pw_error="رمز عبور حساب صحیح نیست"), 401
+    session.pop("restore_rl", None)
     session["restore_pw_ok"] = {"token": mgmt_token, "exp": _t.time() + 120}
     audit("RESTORE_PW_OK", client_ip())
     return redirect(f"/manage/stepup/{mgmt_token}/restore")
@@ -707,28 +785,59 @@ def manage_restore_page(mgmt_token):
 
 @bp.get("/manage/restore_dl/<mgmt_token>")
 def manage_restore_dl(mgmt_token):
+    import traceback
     from flask import send_file
-    info = verify_mgmt_token(mgmt_token)
-    dl = session.pop("restore_dl", None)
-    if not info or not dl or dl["token"] != mgmt_token or _t.time() > dl["exp"]:
-        return redirect(url_for("admin_panel.manage_enter"))
-    with get_db() as c:
-        row = c.execute("SELECT uid, filename FROM files WHERE id=?", (info["file_id"],)).fetchone()
-    src = TRASH / (row["uid"] + ".enc")
-    if not src.exists():
-        return redirect(f"/manage/panel/{mgmt_token}")
-    audit("MGMT_RESTORE_DOWNLOAD", client_ip(), f"file_id={info['file_id']}")
-    return send_file(str(src), as_attachment=True, download_name=(row["filename"] + ".enc"))
-
-
-FORMS = {
-    "edit_capacity": ("تغییر ظرفیت بازدید", "number", "max_views"),
-    "edit_expiry": ("تغییر زمان انقضا", "expiry", "expires"),
-    "edit_note": ("یادداشت خصوصی مالک", "textarea", "private_note"),
-    "edit_intro": ("پیام خوش‌آمد بیننده", "textarea", "intro_message"),
-    "edit_end": ("پیام پس از سوختن", "textarea", "end_message"),
-}
-
+    import io as _io
+    try:
+        info = verify_mgmt_token(mgmt_token)
+        if not info:
+            return redirect(url_for("admin_panel.manage_enter"))
+        dl = session.pop("restore_dl", None)
+        if not dl or dl["token"] != mgmt_token or _t.time() > dl["exp"]:
+            return redirect(f"/manage/panel/{mgmt_token}")
+        with get_db() as c:
+            row = c.execute("SELECT uid, filename, mime, dek_wrapped AS dw FROM files WHERE id=?", (info["file_id"],)).fetchone()
+        if not row or _meta_get("restore_used_" + str(row["uid"])):
+            return redirect(f"/manage/panel/{mgmt_token}")
+        src = TRASH / (row["uid"] + ".enc")
+        if not src.exists():
+            with get_db() as c2:
+                fp = c2.execute("SELECT file_path FROM files WHERE id=?", (info["file_id"],)).fetchone()
+            src = Path(fp["file_path"]) if (fp and fp["file_path"] and Path(fp["file_path"]).exists()) else None
+        if not src:
+            return redirect(f"/manage/panel/{mgmt_token}")
+        plain = None
+        try:
+            import core as _core, inspect as _insp
+            _df = getattr(_core, "decrypt_file", None)
+            if _df is None:
+                for _nm in dir(_core):
+                    _ob = getattr(_core, _nm)
+                    if _insp.isclass(_ob) and hasattr(_ob, "decrypt_file"):
+                        _df = _ob.decrypt_file
+                        break
+            if _df and row["dw"]:
+                plain = _df(src.read_bytes(), bytes(row["dw"]))
+        except Exception:
+            traceback.print_exc()
+            plain = None
+        if plain:
+            resp = send_file(_io.BytesIO(plain), mimetype=(row["mime"] or "application/octet-stream"),
+                             as_attachment=True, download_name=row["filename"])
+        else:
+            resp = send_file(str(src), as_attachment=True, download_name=row["filename"] + ".enc")
+        audit("MGMT_RESTORE_DOWNLOAD", client_ip(), f"file_id={info['file_id']} decrypted={bool(plain)}")
+        _meta_set("restore_used_" + str(row["uid"]), _t.time())
+        tf = TRASH / (row["uid"] + ".enc")
+        if tf.exists():
+            tf.unlink()
+        tm = TRASH / (row["uid"] + ".meta.json")
+        if tm.exists():
+            tm.unlink()
+        return resp
+    except Exception:
+        traceback.print_exc()
+        return "خطای سرور در دانلود بازیابی", 500
 
 @bp.route("/manage/editform/<mgmt_token>/<action>", methods=["GET", "POST"])
 def manage_editform(mgmt_token, action):
@@ -894,6 +1003,50 @@ def manage_otp_page():
     r.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     r.headers["Pragma"] = "no-cache"
     return r
+
+
+@bp.route("/manage/burn_pw/<mgmt_token>", methods=["GET", "POST"])
+def manage_burn_pw(mgmt_token):
+    info = verify_mgmt_token(mgmt_token)
+    if not info:
+        return redirect(url_for("admin_panel.manage_enter"))
+    with get_db() as c:
+        row = c.execute("SELECT id, uid, owner_id, status, views_count, settings, expires_at FROM files WHERE id=?", (info["file_id"],)).fetchone()
+    if not row:
+        return redirect(url_for("admin_panel.manage_enter"))
+    rd = dict(row)
+    import json as _jx
+    try:
+        _stg = _jx.loads(rd.get("settings") or "{}")
+    except Exception:
+        _stg = {}
+    from core import real_status as _rsx
+    _k, _f, _g, _d = _rsx(rd, _stg, bool(rd.get("file_path") and Path(rd["file_path"]).exists()))
+    if _g == "bad":
+        return redirect(f"/manage/panel/{mgmt_token}")
+    tpl = (Path(__file__).parent / "templates" / "manage_burn_pw.html").read_text(encoding="utf-8")
+    if request.method == "GET":
+        return _render(tpl, mgmt_token=mgmt_token, pw_error=None)
+    pw = request.form.get("password") or ""
+    rl = session.get("burn_rl") or {"n": 0, "until": 0, "uid": ""}
+    if rl.get("uid") == rd["uid"] and _t.time() < rl["until"]:
+        audit("BURN_PW_LOCKED", client_ip())
+        return _render(tpl, mgmt_token=mgmt_token, pw_error="۵ تلاش غلط؛ سوزاندن این فایل ۳ دقیقه قفل است"), 429
+    with get_db() as c:
+        u = c.execute("SELECT pw_hash, salt FROM users WHERE id=?", (rd["owner_id"],)).fetchone()
+    if not u or not _check_account_pw(u, pw):
+        if rl.get("uid") != rd["uid"]:
+            rl = {"n": 0, "until": 0, "uid": rd["uid"]}
+        rl["n"] = rl.get("n", 0) + 1
+        if rl["n"] >= 5:
+            rl = {"n": 0, "until": _t.time() + 180, "uid": rd["uid"]}
+        session["burn_rl"] = rl
+        audit("BURN_PW_WRONG", client_ip())
+        return _render(tpl, mgmt_token=mgmt_token, pw_error="رمز عبور حساب صحیح نیست"), 401
+    session.pop("burn_rl", None)
+    session["burn_pw_ok"] = {"token": mgmt_token, "exp": _t.time() + 120}
+    audit("BURN_PW_OK", client_ip())
+    return redirect(f"/manage/stepup/{mgmt_token}/burn")
 
 
 def register(app):

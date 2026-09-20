@@ -69,10 +69,16 @@
 
   <div class="mp-section">
     <h3>💬 پیام‌های بیننده</h3>
-    <div class="mp-row"><span class="k">خوش‌آمد</span><span class="v fa">{{ file_info.intro[:40] or "—" }}</span></div>
-    <div class="mp-row"><span class="k">پس از سوختن</span><span class="v fa">{{ file_info.endm[:40] or "—" }}</span></div>
-    <button class="mp-btn" data-action="edit_intro" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ پیام خوش‌آمد</button>
-    <button class="mp-btn" data-action="edit_end" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ پیام پس از سوختن</button>
+    <div class="msg-block">
+      <div class="msg-label">💬 پیام خوش‌آمد</div>
+      <div class="msg-text">{{ file_info.intro or "تنظیم نشده" }}</div>
+    </div>
+    <div class="msg-block">
+      <div class="msg-label">🔥 پیام پس از سوختن</div>
+      <div class="msg-text">{{ file_info.endm or "تنظیم نشده" }}</div>
+    </div>
+    <button class="mp-btn" data-action="edit_intro" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ ویرایش پیام خوش‌آمد</button>
+    <button class="mp-btn" data-action="edit_end" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ ویرایش پیام پس از سوختن</button>
   </div>
 
   <div class="mp-section">
@@ -113,7 +119,7 @@
     <p style="font-size:11.5px;color:var(--dim);margin:0 0 10px">پس از سوزاندن، فایل رمزنگاری‌شده تا ۱ ساعت در سطل بازیافت می‌ماند و قابل بازگشت است.</p>
     <button class="mp-btn" data-action="edit_capacity" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ تغییر ظرفیت بازدید</button>
     <button class="mp-btn" data-action="edit_expiry" {% if file_info.status_group == 'bad' %}disabled{% endif %}>⏳ تغییر زمان انقضا</button>
-    {% if file_info.trash %}<a class="mp-btn mp-btn-primary" style="text-decoration:none" href="/manage/restore/{{ mgmt_token }}">📥 بازیابی فایل ({{ file_info.trash.left_min }} دقیقه مانده)</a>
+    {% if file_info.trash %}<button class="mp-btn mp-btn-primary" id="btn-restore">📥 بازیابی فایل ({{ file_info.trash.left_min }} دقیقه مانده)</button>
     {% else %}<button class="mp-btn" disabled>📥 بازیابی فایل</button>{% endif %}
     <button class="mp-btn" data-action="revoke_sessions">🚪 خروج از همه نشست‌های مدیریت</button>
     <button class="mp-btn" data-action="copy_id" {% if file_info.status_group == 'bad' %}disabled{% endif %}>📋 کپی مجدد آیدی فایل</button>
@@ -141,103 +147,17 @@
     <button class="mp-modal-go" id="mp-go">اجرای عملیات ←</button>
     <button class="mp-modal-cancel" id="mp-cancel">انصراف</button>
   </div>
-</div>
+
+
 
 <script nonce="{{ nonce }}">
-(function(){
-  var TOKEN = "{{ mgmt_token }}";
-  var CSRF  = "{{ confirm_code }}";
-  var current = null;
-  var modal = document.getElementById("mp-modal");
-  var codeEl = document.getElementById("mp-code");
-  var demoEl = document.getElementById("mp-demo");
-  var demoCodeEl = document.getElementById("mp-demo-code");
-  var errEl = document.getElementById("mp-err");
-  var descEl = document.getElementById("mp-desc");
-
-  function showErr(t){ errEl.textContent = t; errEl.style.display = "block"; }
-  function hideErr(){ errEl.style.display = "none"; }
-  function openModal(){ modal.style.display = "flex"; codeEl.value = ""; hideErr();
-    demoEl.style.display = "none"; document.getElementById("mp-result").style.display = "none"; document.getElementById("mp-go").style.display = ""; setTimeout(function(){ codeEl.focus(); }, 50); }
-  function closeModal(){ modal.style.display = "none"; }
-
-  var MSGS = {
-    pause:    "برای مکث موقت فایل، کد ارسال‌شده به شماره مالک را وارد کنید.",
-    resume:   "برای ادامه دسترسی، کد ارسال‌شده به شماره مالک را وارد کنید.",
-    copy_id:  "برای کپی آیدی فایل، کد ارسال‌شده به شماره مالک را وارد کنید.",
-    revoke:   "برای باطل‌کردن کامل دسترسی، کد ارسال‌شده به شماره مالک را وارد کنید.",
-    burn:     "⚠️ سوزاندن فایل غیرقابل بازگشت است. کد ارسال‌شده به شماره مالک را وارد کنید."
-  };
-
-  document.addEventListener("click", function(ev){
-    var b = ev.target.closest("button[data-action]");
-    if(!b || b.disabled) return;
-    location.href = "/manage/stepup/" + TOKEN + "/" + b.dataset.action;
-  });
-
-  document.getElementById("mp-go").addEventListener("click", function(){
-    if(!current) return;
-    var fd = new FormData();
-    fd.append("code", codeEl.value.trim());
-    fd.append("confirm_code", CSRF);
-    fetch("/api/manage/" + TOKEN + "/" + current, {
-      method:"POST", body:fd,
-      headers:{"X-Mgmt-Stepup":"verify"}, credentials:"same-origin"
-    }).then(function(r){ return r.json(); }).then(function(j){
-      if(j.ok){
-        if(j.uid || j.pw){
-          var txt = j.uid || j.pw;
-          document.getElementById("mp-result-label").textContent = j.uid ? "📋 آیدی فایل:" : "🔑 رمز عبور فایل:";
-          document.getElementById("mp-result-val").value = txt;
-          document.getElementById("mp-result").style.display = "block";
-          document.getElementById("mp-go").style.display = "none";
-          if(navigator.clipboard){ navigator.clipboard.writeText(txt).catch(function(){}); }
-        } else {
-          closeModal();
-          location.reload();
-        }
-      } else {
-        showErr(j.error || "خطا");
-      }
-    }).catch(function(){ showErr("خطای ارتباط"); });
-  });
-
-  if(document.getElementById("cp-copy")) document.getElementById("cp-copy").addEventListener("click", function(){
-    var btn = this;
-    fetch("/manage/pickup", {method:"POST", credentials:"same-origin"}).then(function(r){ return r.json(); }).then(function(j){
-      if(j.value){
-        if(navigator.clipboard){ navigator.clipboard.writeText(j.value).then(function(){ btn.textContent = "✅ کپی شد"; }, function(){ btn.textContent = "✅ کپی شد"; }); }
-        else { btn.textContent = "✅ کپی شد"; }
-      } else { btn.textContent = "❌ منقضی شد"; }
-    });
-  });
-  if(document.getElementById("cp-close")) document.getElementById("cp-close").addEventListener("click", function(){
-    document.getElementById("copy-modal").style.display = "none";
-  });
-  document.getElementById("mp-cancel").addEventListener("click", closeModal);
-  /* شمارش معکوس انقضا */
-  (function(){
-    var el = document.getElementById("exp-count");
-    if(!el) return;
-    var exp = parseFloat(el.dataset.exp), cr = parseFloat(el.dataset.created || "0");
-    if(el.dataset.dead === "1"){ el.textContent = "۰۰:۰۰:۰۰ — غیرفعال"; el.style.color = "#ef4444"; if(bar) bar.style.width = "0%"; return; }
-    var bar = document.getElementById("exp-bar");
-    function fmt(sec){ var d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), ss=Math.floor(sec%60);
-      return (d ? d + " روز و " : "") + String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0") + ":" + String(ss).padStart(2,"0"); }
-    function tick(){ var left = exp - Date.now()/1000;
-      if(left <= 0){ el.textContent = "منقضی شده ⏳"; el.style.color = "#ef4444"; if(bar) bar.style.width = "0%"; return; }
-      el.textContent = fmt(left);
-      var total = Math.max(exp - (cr || exp - 86400), 60);
-      if(bar) bar.style.width = Math.min(100, (left / total) * 100) + "%";
-      setTimeout(tick, 1000); }
-    tick();
-  })();
-  /* auto-refresh: داده در لحظه */
-  setInterval(function(){ if(modal.style.display !== "flex") location.reload(); }, 20000);
-  modal.addEventListener("click", function(ev){ if(ev.target === modal) closeModal(); });
-  document.addEventListener("keydown", function(ev){
-    if(ev.key === "Escape" && modal.style.display === "flex") closeModal();
-  });
-})();
+/* stepup_nav_handler */
+document.addEventListener("click", function(ev){
+  var b = ev.target.closest("button[data-action]");
+  if(!b || b.disabled) return;
+  location.href = "/manage/stepup/{{ mgmt_token }}/" + b.dataset.action;
+});
+var rb = document.getElementById("btn-restore");
+if(rb) rb.addEventListener("click", function(){ location.href = "/manage/restore/{{ mgmt_token }}"; });
 </script>
 {% endblock %}

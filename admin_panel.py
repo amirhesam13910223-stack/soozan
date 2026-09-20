@@ -198,8 +198,8 @@ def manage_enter():
     masked = phone[:4] + "***" + phone[-2:]
     otp_tpl = (Path(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
     DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or client_ip() in ("127.0.0.1", "::1", "localhost")
-    return _render(otp_tpl, demo_code=code if DEV else None, phone=masked,
-                   error=None, seconds_left=120)
+    session["manage_otp_phone"] = masked
+    return redirect(url_for("admin_panel.manage_otp_page"))
 
 
 # ════════════════════════════════════════════════════════════════
@@ -540,7 +540,11 @@ def manage_stepup(mgmt_token, action):
         from ui import render as _r2
         if code is None:
             code = 401 if err else 200
-        return _r2(tpl, demo_code=demo, phone=phone, error=err, seconds_left=sec, **kw), code
+        from flask import make_response
+        _resp = make_response(_r2(tpl, demo_code=demo, phone=phone, error=err, seconds_left=sec, **kw), code)
+        _resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        _resp.headers["Pragma"] = "no-cache"
+        return _resp
 
     phone_full = ""
     with get_db() as c:
@@ -550,6 +554,13 @@ def manage_stepup(mgmt_token, action):
     masked = phone_full[:4] + "***" + phone_full[-2:] if phone_full else ""
 
     if request.method == "GET":
+        done = session.get("stepup_done")
+        if done and done["token"] == mgmt_token and done["action"] == action and _t.time() < done["exp"]:
+            return redirect(f"/manage/panel/{mgmt_token}")
+        st0 = session.get("mgmt_stepup")
+        if st0 and st0["token"] == mgmt_token and st0["action"] == action and _t.time() < st0["exp"]:
+            rem0 = max(0, int(st0["exp"] - _t.time()))
+            return page(None, demo=st0["code"] if DEV else None, phone=masked, sec=rem0)
         if not phone_full:
             return page("شماره مالک یافت نشد", sec=0)
         code = f"{_sec.randbelow(1000000):06d}"
@@ -584,6 +595,7 @@ def manage_stepup(mgmt_token, action):
         session["mgmt_stepup"] = st
         return page("کد صحیح نیست", demo=st["code"] if DEV else None, phone=masked, sec=remaining)
     session.pop("mgmt_stepup", None)
+    session["stepup_done"] = {"token": mgmt_token, "action": action, "exp": _t.time() + 90}
     if action.startswith("edit_"):
         session["stepup_form"] = {"token": mgmt_token, "action": action, "exp": _t.time() + 180}
         return redirect(f"/manage/editform/{mgmt_token}/{action}")
@@ -607,7 +619,7 @@ def manage_stepup(mgmt_token, action):
             session["pw_pickup"] = {"value": uid_v, "exp": _t.time() + 120}
             session["stepup_result"] = {"label": "📋 آیدی کامل فایل:", "value": "", "masked": (uid_v[:5] + "••••••" + uid_v[-4:]) if len(uid_v) > 9 else "•" * len(uid_v), "pickup": True}
         else:
-            session["stepup_result"] = {"label": "✅ عملیات انجام شد", "value": {"pause": "فایل موقتاً متوقف شد", "resume": "دسترسی فایل ادامه یافت", "burn": "فایل سوخته شد"}.get(action, "")}
+            session["stepup_msg"] = {"pause": "فایل موقتاً متوقف شد", "resume": "دسترسی فایل ادامه یافت", "burn": "فایل سوخته شد و تا ۱ ساعت در سطل بازیافت است"}.get(action, "عملیات انجام شد")
     if err:
         session["stepup_error"] = err
         return redirect(f"/manage/panel/{mgmt_token}")
@@ -711,7 +723,7 @@ def manage_restore_dl(mgmt_token):
 
 FORMS = {
     "edit_capacity": ("تغییر ظرفیت بازدید", "number", "max_views"),
-    "edit_expiry": ("ساعت تا انقضا (۰ = بدون انقضا)", "number", "expires"),
+    "edit_expiry": ("تغییر زمان انقضا", "expiry", "expires"),
     "edit_note": ("یادداشت خصوصی مالک", "textarea", "private_note"),
     "edit_intro": ("پیام خوش‌آمد بیننده", "textarea", "intro_message"),
     "edit_end": ("پیام پس از سوختن", "textarea", "end_message"),
@@ -750,6 +762,8 @@ def manage_editform(mgmt_token, action):
         if not err:
             stg["max_views"] = n
     elif key == "expires":
+        unit = request.form.get("unit") or "hour"
+        mult = {"min": 60, "hour": 3600, "day": 86400}.get(unit, 3600)
         try:
             h = float(val)
             if h < 0:
@@ -758,7 +772,7 @@ def manage_editform(mgmt_token, action):
             err = "عدد نامعتبر"
         if not err:
             with get_db() as c:
-                c.execute("UPDATE files SET expires_at=? WHERE id=?", (None if h <= 0 else _t.time() + h * 3600, info["file_id"]))
+                c.execute("UPDATE files SET expires_at=? WHERE id=?", (None if h <= 0 else _t.time() + h * mult, info["file_id"]))
     else:
         if len(val) > 500:
             err = "حداکثر ۵۰۰ نویسه"
@@ -773,6 +787,113 @@ def manage_editform(mgmt_token, action):
     session["stepup_msg"] = f"{title} اعمال شد"
     audit("MGMT_EDIT_" + action.upper(), client_ip(), f"file_id={info['file_id']}")
     return redirect(f"/manage/panel/{mgmt_token}")
+
+
+@bp.post("/manage/stepup_issue/<mgmt_token>/<action>")
+def manage_stepup_issue(mgmt_token, action):
+    if action not in ("pause", "resume", "burn", "copy_id", "restore", "revoke_sessions", "edit_capacity", "edit_expiry", "edit_note", "edit_intro", "edit_end"):
+        return jsonify(ok=False, error="اکشن نامعتبر"), 400
+    info = verify_mgmt_token(mgmt_token)
+    if not info:
+        return jsonify(ok=False, error="نشست نامعتبر"), 401
+    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or client_ip() in ("127.0.0.1", "::1", "localhost")
+    with get_db() as c:
+        ow = c.execute("SELECT phone FROM users WHERE id=(SELECT owner_id FROM files WHERE id=?)", (info["file_id"],)).fetchone()
+    if not ow or not ow["phone"]:
+        return jsonify(ok=False, error="شماره مالک یافت نشد"), 404
+    code = f"{_sec.randbelow(1000000):06d}"
+    session["mgmt_stepup"] = {"token": mgmt_token, "action": action, "code": code, "exp": _t.time() + 120, "tries": 0}
+    audit("MGMT_STEPUP_SENT", client_ip(), f"action={action}")
+    return jsonify(ok=True, demo=code if DEV else None,
+                   phone=ow["phone"][:4] + "***" + ow["phone"][-2:], seconds=120)
+
+
+@bp.post("/manage/stepup_verify/<mgmt_token>/<action>")
+def manage_stepup_verify(mgmt_token, action):
+    info = verify_mgmt_token(mgmt_token)
+    if not info:
+        return jsonify(ok=False, error="نشست نامعتبر"), 401
+    st = session.get("mgmt_stepup")
+    if not st or st["token"] != mgmt_token or st["action"] != action:
+        return jsonify(ok=False, error="اول درخواست کد بده"), 400
+    remaining = max(0, int(st["exp"] - _t.time()))
+    if remaining <= 0:
+        session.pop("mgmt_stepup", None)
+        return jsonify(ok=False, error="کد منقضی شد؛ دکمه ارسال مجدد را بزن"), 401
+    if st.get("locked"):
+        return jsonify(ok=False, error="کد باطل شده؛ ارسال مجدد را بزن"), 401
+    code = (request.form.get("code") or "").strip()
+    if not _otp_eq(code, st["code"]):
+        st["tries"] = st.get("tries", 0) + 1
+        if st["tries"] >= 4:
+            st["locked"] = True
+            st["code"] = ""
+        session["mgmt_stepup"] = st
+        audit("MGMT_STEPUP_WRONG", client_ip())
+        return jsonify(ok=False, error="کد صحیح نیست", seconds=remaining)
+    session.pop("mgmt_stepup", None)
+    fid = info["file_id"]
+    if action.startswith("edit_"):
+        session["stepup_form"] = {"token": mgmt_token, "action": action, "exp": _t.time() + 180}
+        return jsonify(ok=True, redirect=f"/manage/editform/{mgmt_token}/{action}")
+    if action == "restore":
+        pwok = session.get("restore_pw_ok")
+        if not pwok or pwok["token"] != mgmt_token or _t.time() > pwok["exp"]:
+            return jsonify(ok=False, error="اول رمز حساب را وارد کن"), 401
+        session.pop("restore_pw_ok", None)
+        session["restore_dl"] = {"token": mgmt_token, "exp": _t.time() + 120}
+        return jsonify(ok=True, redirect=f"/manage/restore_dl_page/{mgmt_token}")
+    rv = _run_action(action, fid)
+    if isinstance(rv, tuple):
+        return jsonify(ok=False, error=(rv[0].get_json() or {}).get("error", "خطا"))
+    data = rv.get_json() or {}
+    if not data.get("ok"):
+        return jsonify(ok=False, error=data.get("error", "خطا"))
+    if action == "copy_id":
+        uid_v = data.get("uid", "")
+        session["pw_pickup"] = {"value": uid_v, "exp": _t.time() + 120}
+        session["stepup_result"] = {"label": "📋 آیدی کامل فایل:", "value": "", "masked": (uid_v[:5] + "••••••" + uid_v[-4:]) if len(uid_v) > 9 else "•" * len(uid_v), "pickup": True}
+        return jsonify(ok=True, redirect=f"/manage/panel/{mgmt_token}")
+    if action == "revoke_sessions":
+        return jsonify(ok=True, redirect=url_for("admin_panel.manage_enter"))
+    session["stepup_msg"] = {"pause": "فایل موقتاً متوقف شد", "resume": "دسترسی فایل ادامه یافت", "burn": "فایل سوخته شد و تا ۱ ساعت در سطل بازیافت است"}.get(action, "عملیات انجام شد")
+    return jsonify(ok=True, redirect=f"/manage/panel/{mgmt_token}")
+
+
+@bp.post("/manage/restore_pw_json/<mgmt_token>")
+def manage_restore_pw_json(mgmt_token):
+    info = verify_mgmt_token(mgmt_token)
+    if not info:
+        return jsonify(ok=False, error="نشست نامعتبر"), 401
+    with get_db() as c:
+        row = c.execute("SELECT uid, owner_id FROM files WHERE id=?", (info["file_id"],)).fetchone()
+    if not row or not _trash_info(row["uid"]):
+        return jsonify(ok=False, error="سطل بازیافت خالی است"), 404
+    pw = request.form.get("password") or ""
+    with get_db() as c:
+        u = c.execute("SELECT pw_hash, salt FROM users WHERE id=?", (row["owner_id"],)).fetchone()
+    if not u or not _check_account_pw(u, pw):
+        audit("RESTORE_PW_WRONG", client_ip())
+        return jsonify(ok=False, error="رمز عبور حساب صحیح نیست"), 401
+    session["restore_pw_ok"] = {"token": mgmt_token, "exp": _t.time() + 120}
+    audit("RESTORE_PW_OK", client_ip())
+    return jsonify(ok=True)
+
+
+@bp.get("/manage/otp")
+def manage_otp_page():
+    st = session.get("manage_otp")
+    if not st:
+        return redirect(url_for("admin_panel.manage_enter"))
+    DEV = _os.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or client_ip() in ("127.0.0.1", "::1", "localhost")
+    tpl = (Path(__file__).parent / "templates" / "manage_otp.html").read_text(encoding="utf-8")
+    remaining = max(0, int(st["exp"] - _t.time()))
+    from flask import make_response
+    r = make_response(_render(tpl, demo_code=st["code"] if DEV else None,
+                              phone=session.get("manage_otp_phone", ""), error=None, seconds_left=remaining))
+    r.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    r.headers["Pragma"] = "no-cache"
+    return r
 
 
 def register(app):

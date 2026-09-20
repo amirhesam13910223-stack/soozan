@@ -3,14 +3,15 @@
 {% block title %}سوزان — بازیابی فایل{% endblock %}
 {% block app_content %}
 <div class="mp-wrap">
-  <div class="mp-section" style="max-width:440px;margin:30px auto">
-    <h3>📥 بازیابی فایل — مرحله ۱ از ۲</h3>
-    <p style="color:var(--dim);font-size:12.5px;line-height:1.8;margin-bottom:14px">برای امنیت، اول <b>رمز عبور حساب مالک</b> و سپس کد ۶ رقمی پیامکی لازم است.</p>
-    {% if pw_error %}<div class="mp-dead" style="padding:10px;font-size:12.5px">{{ pw_error }}</div>{% endif %}
+  <div class="mf-card">
+    <div class="mf-icon">🔐</div>
+    <h3 class="mf-title">بازیابی فایل — مرحله ۱ از ۲</h3>
+    <p class="mf-sub">برای امنیت بیشتر، اول <b>رمز عبور حساب مالک</b> را وارد کن؛<br>در مرحله بعد کد ۶ رقمی به شماره مالک ارسال می‌شود.</p>
+    {% if pw_error %}<div class="mf-err">⚠️ {{ pw_error }}</div>{% endif %}
     <form method="post">
-      <input class="mp-modal-input" type="password" name="password" placeholder="رمز عبور حساب" style="font-size:14px;letter-spacing:1px">
-      <button class="mp-modal-go" type="submit" style="margin-top:10px">ادامه ←</button>
-      <a class="mp-link" href="/manage/panel/{{ mgmt_token }}">انصراف</a>
+      <input class="mf-num" type="password" name="password" placeholder="رمز عبور حساب" style="letter-spacing:2px">
+      <button class="mf-go" type="submit">ادامه به تأیید پیامکی ←</button>
+      <a class="mf-cancel" href="/manage/panel/{{ mgmt_token }}">انصراف</a>
     </form>
   </div>
 </div>

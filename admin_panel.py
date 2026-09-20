@@ -47,6 +47,9 @@ def verify_mgmt_token(token: str) -> Optional[dict]:
         exp = float(exp_s)
         if _t.time() > exp:
             return None
+        rev = _meta_get("mgmt_revoke_ts")
+        if rev and (exp - 1800) < float(rev):
+            return None
         return {"file_id": int(fid_s), "exp": exp,
                 "csrf": _hmac.new(_derive_mgmt_key(), token.encode(), "sha256").hexdigest()[:16]}
     except Exception:
@@ -82,6 +85,56 @@ def _to_jalali(ts) -> str:
 
 
 
+
+
+def _meta_get(k):
+    with get_db() as c:
+        c.execute("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, val TEXT)")
+        r = c.execute("SELECT val FROM meta WHERE key=?", (k,)).fetchone()
+        return r["val"] if r else None
+
+
+def _meta_set(k, v):
+    with get_db() as c:
+        c.execute("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, val TEXT)")
+        c.execute("INSERT OR REPLACE INTO meta(key,val) VALUES(?,?)", (k, str(v)))
+
+
+TRASH = Path(__file__).parent / "data" / "trash"
+
+
+def _purge_trash():
+    import json as _jp
+    if not TRASH.exists():
+        return
+    for mp in TRASH.glob("*.meta.json"):
+        try:
+            m = _jp.loads(mp.read_text(encoding="utf-8"))
+            if _t.time() > m.get("until", 0):
+                fp = TRASH / (m["uid"] + ".enc")
+                if fp.exists():
+                    fp.unlink()
+                mp.unlink()
+        except Exception:
+            try:
+                mp.unlink()
+            except Exception:
+                pass
+
+
+def _trash_info(uid):
+    import json as _jp
+    mp = TRASH / (uid + ".meta.json")
+    if not mp.exists():
+        return None
+    try:
+        m = _jp.loads(mp.read_text(encoding="utf-8"))
+        if _t.time() > m.get("until", 0):
+            return None
+        m["left_min"] = max(1, int((m["until"] - _t.time()) // 60))
+        return m
+    except Exception:
+        return None
 
 
 def _otp_eq(a: str, b: str) -> bool:
@@ -298,12 +351,47 @@ def manage_panel(mgmt_token):
         "lock_fa": f"بعد از {lock_n} رمز غلط" if lock_n else "خاموش",
         "exp_fa": _to_jalali(rd.get("expires_at")) if rd.get("expires_at") else "—",
         "dev_fa": dev_fa,
+        "note": stg.get("private_note") or "",
+        "intro": stg.get("intro_message") or "",
+        "endm": stg.get("end_message") or "",
+        "exp_ts": rd.get("expires_at") or 0,
+        "created_ts": rd.get("created_at") or 0,
+        "trash": _trash_info(rd["uid"]),
     }
+    _purge_trash()
+    with get_db() as c4:
+        vrows = c4.execute("SELECT ip, device, duration, viewed_at FROM views WHERE file_id=? ORDER BY viewed_at DESC LIMIT 20", (info["file_id"],)).fetchall()
+    views_rows = [{"ts_fa": _to_jalali(v["viewed_at"]), "ip": v["ip"] or "—", "dev": (v["device"] or "نامشخص")[:24], "dur": f"{int(v['duration'] or 0)} ثانیه"} for v in vrows]
+    recent_wrong = None
+    try:
+        with get_db() as c5:
+            ecol = {r["name"] for r in c5.execute("PRAGMA table_info(events)")}
+            tcol = next((x for x in ("ts", "created_at", "time") if x in ecol), None)
+            acol = next((x for x in ("action", "type", "name", "event") if x in ecol), None)
+            icol = next((x for x in ("ip", "client_ip", "addr") if x in ecol), None)
+            dcol = next((x for x in ("detail", "msg", "message", "extra") if x in ecol), None)
+            if tcol and acol:
+                uidq = rd["uid"][:12]
+                cnt = 0
+                ips = set()
+                for er in c5.execute(f"SELECT * FROM events WHERE {tcol} > ? ORDER BY {tcol} DESC LIMIT 30", (_t.time() - 600,)).fetchall():
+                    act = str(er[acol] or "")
+                    det = str(er[dcol] or "") if dcol else ""
+                    if ("WRONG" in act or "FAIL" in act) and (uidq in det or uidq in act):
+                        cnt += 1
+                        if icol:
+                            ips.add(str(er[icol]))
+                if cnt:
+                    recent_wrong = {"count": cnt, "ips": "، ".join(sorted(ips)) or "—"}
+    except Exception:
+        recent_wrong = None
     tpl = (Path(__file__).parent / "templates" / "manage_panel.html").read_text(encoding="utf-8")
     return _render(tpl, file_info=file_info, mgmt_token=mgmt_token,
                    confirm_code=info["csrf"],
                    copy_result=session.pop("stepup_result", None),
-                   stepup_error=session.pop("stepup_error", None))
+                   stepup_error=session.pop("stepup_error", None),
+                   stepup_msg=session.pop("stepup_msg", None),
+                   views_rows=views_rows, recent_wrong=recent_wrong)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -365,7 +453,7 @@ def _stepup_flow(action: str, mgmt_token: str):
 def _run_action(action: str, file_id: int):
     """اجرای واقعی اکشن روی فایل"""
     with get_db() as conn:
-        row = conn.execute("SELECT status, file_path FROM files WHERE id=?", (file_id,)).fetchone()
+        row = conn.execute("SELECT status, file_path, uid FROM files WHERE id=?", (file_id,)).fetchone()
         if not row:
             return jsonify(ok=False, error="فایل یافت نشد"), 404
         st = row["status"]
@@ -387,14 +475,22 @@ def _run_action(action: str, file_id: int):
                 return jsonify(ok=False, error="فایل متوقف/قفل نیست"), 400
             conn.execute("UPDATE files SET status='active' WHERE id=?", (file_id,))
         elif action == "burn":
-            try:
-                if row["file_path"] and Path(row["file_path"]).exists():
-                    Path(row["file_path"]).unlink()
-            except Exception:
-                pass
+            _purge_trash()
+            import shutil as _sh, json as _jm, os as _osm
+            TRASH.mkdir(parents=True, exist_ok=True)
+            _osm.chmod(TRASH, 0o700)
+            src = row["file_path"]
+            if src and Path(src).exists():
+                _sh.move(src, str(TRASH / (row["uid"] + ".enc")))
+                (TRASH / (row["uid"] + ".meta.json")).write_text(
+                    _jm.dumps({"uid": row["uid"], "until": _t.time() + 3600, "orig": src}), encoding="utf-8")
             conn.execute("UPDATE files SET status='burned' WHERE id=?", (file_id,))
         elif action == "revoke":
             conn.execute("UPDATE files SET status='revoked', admin_code=NULL WHERE id=?", (file_id,))
+        elif action == "revoke_sessions":
+            _meta_set("mgmt_revoke_ts", _t.time())
+            audit("MGMT_REVOKE_ALL", client_ip())
+            return jsonify(ok=True)
         elif action == "copy_id":
             uid = conn.execute("SELECT uid FROM files WHERE id=?", (file_id,)).fetchone()["uid"]
             audit("MGMT_COPY_ID", client_ip())
@@ -405,7 +501,7 @@ def _run_action(action: str, file_id: int):
 
 @bp.post("/api/manage/<mgmt_token>/<action>")
 def mgmt_action(mgmt_token, action):
-    if action not in ("pause", "resume", "burn", "revoke", "copy_id"):
+    if action not in ("pause", "resume", "burn", "revoke", "copy_id", "restore", "revoke_sessions", "edit_capacity", "edit_expiry", "edit_note", "edit_intro", "edit_end"):
         return jsonify(ok=False, error="اکشن ناشناخته"), 404
     deny = _stepup_flow(action, mgmt_token)
     if deny:
@@ -417,7 +513,7 @@ def mgmt_action(mgmt_token, action):
 @bp.route("/manage/stepup/<mgmt_token>/<action>", methods=["GET", "POST"])
 def manage_stepup(mgmt_token, action):
     """صفحه کد ۶ رقمی برای عملیات‌ها — دقیقاً همان صفحه ورود پنل"""
-    if action not in ("pause", "resume", "burn", "copy_id"):
+    if action not in ("pause", "resume", "burn", "copy_id", "restore", "revoke_sessions", "edit_capacity", "edit_expiry", "edit_note", "edit_intro", "edit_end"):
         return redirect(url_for("admin_panel.manage_enter"))
     info = verify_mgmt_token(mgmt_token)
     if not info:
@@ -428,8 +524,15 @@ def manage_stepup(mgmt_token, action):
     DESCS = {
         "pause": "⏸ درخواست مکث موقت فایل",
         "resume": "▶ درخواست ادامه دسترسی فایل",
-        "burn": "🔥 درخواست سوزاندن کامل فایل (غیرقابل بازگشت)",
+        "burn": "🔥 درخواست سوزاندن فایل — فایل رمزنگاری‌شده تا ۱ ساعت در سطل بازیافت می‌ماند و قابل بازگشت است",
         "copy_id": "📋 درخواست کپی مجدد آیدی فایل",
+        "restore": "📥 درخواست بازیابی و دانلود فایل از سطل بازیافت",
+        "revoke_sessions": "🚪 درخواست خروج از همه نشست‌های مدیریت",
+        "edit_capacity": "✏️ درخواست تغییر ظرفیت بازدید",
+        "edit_expiry": "⏳ درخواست تغییر زمان انقضا",
+        "edit_note": "📝 درخواست ویرایش یادداشت خصوصی",
+        "edit_intro": "💬 درخواست ویرایش پیام خوش‌آمد",
+        "edit_end": "💬 درخواست ویرایش پیام پس از سوختن",
     }
     kw = {"otp_action": request.path, "otp_desc": DESCS[action], "otp_submit": "اجرای عملیات ←"}
 
@@ -481,6 +584,16 @@ def manage_stepup(mgmt_token, action):
         session["mgmt_stepup"] = st
         return page("کد صحیح نیست", demo=st["code"] if DEV else None, phone=masked, sec=remaining)
     session.pop("mgmt_stepup", None)
+    if action.startswith("edit_"):
+        session["stepup_form"] = {"token": mgmt_token, "action": action, "exp": _t.time() + 180}
+        return redirect(f"/manage/editform/{mgmt_token}/{action}")
+    if action == "restore":
+        pwok = session.get("restore_pw_ok")
+        if not pwok or pwok["token"] != mgmt_token or _t.time() > pwok["exp"]:
+            return redirect(f"/manage/restore/{mgmt_token}")
+        session.pop("restore_pw_ok", None)
+        session["restore_dl"] = {"token": mgmt_token, "exp": _t.time() + 120}
+        return redirect(f"/manage/restore_dl_page/{mgmt_token}")
     rv = _run_action(action, fid)
     err = None
     if isinstance(rv, tuple):
@@ -497,6 +610,10 @@ def manage_stepup(mgmt_token, action):
             session["stepup_result"] = {"label": "✅ عملیات انجام شد", "value": {"pause": "فایل موقتاً متوقف شد", "resume": "دسترسی فایل ادامه یافت", "burn": "فایل سوخته شد"}.get(action, "")}
     if err:
         session["stepup_error"] = err
+        return redirect(f"/manage/panel/{mgmt_token}")
+    if action == "revoke_sessions":
+        session.pop("mgmt_token_note", None)
+        return redirect(url_for("admin_panel.manage_enter"))
     return redirect(f"/manage/panel/{mgmt_token}")
 
 
@@ -509,6 +626,153 @@ def manage_pickup():
         return jsonify(ok=False, error="منقضی شد"), 401
     audit("MGMT_PW_PICKUP", client_ip())
     return jsonify(ok=True, value=pk["value"])
+
+
+def _find_pw_verifier():
+    """پیدا کردن تابع بررسی رمز عبور (scrypt) از auth/core"""
+    for mod in ("auth", "core"):
+        pf = Path(__file__).parent / (mod + ".py")
+        if not pf.exists():
+            continue
+        src = pf.read_text(encoding="utf-8")
+        for m in re.finditer(r"def (\w+)\(([^)]*)\):", src):
+            body = src[m.end():m.end() + 700]
+            if "scrypt" in body:
+                return mod, m.group(1)
+    return None, None
+
+
+def _check_account_pw(user_row, password):
+    import hashlib as _hl, hmac as _hm2
+    stored = user_row["pw_hash"] or ""
+    salt = user_row["salt"] or ""
+    parts = stored.split("$")
+    try:
+        if len(parts) == 3 and parts[0] == "scrypt":
+            salt_b = bytes.fromhex(parts[1])
+            want = parts[2]
+        else:
+            salt_b = bytes.fromhex(salt) if salt else b""
+            want = stored
+        got = _hl.scrypt(password.encode(), salt=salt_b, n=16384, r=8, p=1, dklen=32).hex()
+        return _hm2.compare_digest(got, want)
+    except Exception:
+        return False
+
+
+@bp.route("/manage/restore/<mgmt_token>", methods=["GET", "POST"])
+def manage_restore_pw(mgmt_token):
+    info = verify_mgmt_token(mgmt_token)
+    if not info:
+        return redirect(url_for("admin_panel.manage_enter"))
+    with get_db() as c:
+        row = c.execute("SELECT uid, owner_id FROM files WHERE id=?", (info["file_id"],)).fetchone()
+    if not row or not _trash_info(row["uid"]):
+        return redirect(f"/manage/panel/{mgmt_token}")
+    tpl = (Path(__file__).parent / "templates" / "manage_restore_pw.html").read_text(encoding="utf-8")
+    if request.method == "GET":
+        return _render(tpl, mgmt_token=mgmt_token, pw_error=None)
+    pw = request.form.get("password") or ""
+    with get_db() as c:
+        u = c.execute("SELECT pw_hash, salt FROM users WHERE id=?", (row["owner_id"],)).fetchone()
+    if not u or not _check_account_pw(u, pw):
+        audit("RESTORE_PW_WRONG", client_ip(), level="WARN") if False else audit("RESTORE_PW_WRONG", client_ip())
+        return _render(tpl, mgmt_token=mgmt_token, pw_error="رمز عبور حساب صحیح نیست"), 401
+    session["restore_pw_ok"] = {"token": mgmt_token, "exp": _t.time() + 120}
+    audit("RESTORE_PW_OK", client_ip())
+    return redirect(f"/manage/stepup/{mgmt_token}/restore")
+
+
+@bp.get("/manage/restore_dl_page/<mgmt_token>")
+def manage_restore_page(mgmt_token):
+    info = verify_mgmt_token(mgmt_token)
+    dl = session.get("restore_dl")
+    if not info or not dl or dl["token"] != mgmt_token or _t.time() > dl["exp"]:
+        return redirect(f"/manage/panel/{mgmt_token}")
+    tpl = (Path(__file__).parent / "templates" / "manage_restore_dl.html").read_text(encoding="utf-8")
+    return _render(tpl, mgmt_token=mgmt_token)
+
+
+@bp.get("/manage/restore_dl/<mgmt_token>")
+def manage_restore_dl(mgmt_token):
+    from flask import send_file
+    info = verify_mgmt_token(mgmt_token)
+    dl = session.pop("restore_dl", None)
+    if not info or not dl or dl["token"] != mgmt_token or _t.time() > dl["exp"]:
+        return redirect(url_for("admin_panel.manage_enter"))
+    with get_db() as c:
+        row = c.execute("SELECT uid, filename FROM files WHERE id=?", (info["file_id"],)).fetchone()
+    src = TRASH / (row["uid"] + ".enc")
+    if not src.exists():
+        return redirect(f"/manage/panel/{mgmt_token}")
+    audit("MGMT_RESTORE_DOWNLOAD", client_ip(), f"file_id={info['file_id']}")
+    return send_file(str(src), as_attachment=True, download_name=(row["filename"] + ".enc"))
+
+
+FORMS = {
+    "edit_capacity": ("تغییر ظرفیت بازدید", "number", "max_views"),
+    "edit_expiry": ("ساعت تا انقضا (۰ = بدون انقضا)", "number", "expires"),
+    "edit_note": ("یادداشت خصوصی مالک", "textarea", "private_note"),
+    "edit_intro": ("پیام خوش‌آمد بیننده", "textarea", "intro_message"),
+    "edit_end": ("پیام پس از سوختن", "textarea", "end_message"),
+}
+
+
+@bp.route("/manage/editform/<mgmt_token>/<action>", methods=["GET", "POST"])
+def manage_editform(mgmt_token, action):
+    info = verify_mgmt_token(mgmt_token)
+    st = session.get("stepup_form")
+    if not info:
+        return redirect(url_for("admin_panel.manage_enter"))
+    if not st or st["token"] != mgmt_token or st["action"] != action or _t.time() > st["exp"] or action not in FORMS:
+        return redirect(f"/manage/panel/{mgmt_token}")
+    title, ftype, key = FORMS[action]
+    import json as _jf
+    with get_db() as c:
+        row = c.execute("SELECT settings, expires_at FROM files WHERE id=?", (info["file_id"],)).fetchone()
+    try:
+        stg = _jf.loads(row["settings"] or "{}")
+    except Exception:
+        stg = {}
+    tpl = (Path(__file__).parent / "templates" / "manage_editform.html").read_text(encoding="utf-8")
+    if request.method == "GET":
+        cur = stg.get(key, "") if ftype == "textarea" else (stg.get("max_views", "") if key == "max_views" else "")
+        return _render(tpl, form_title=title, form_type=ftype, form_cur=cur, mgmt_token=mgmt_token, form_error=None)
+    val = (request.form.get("value") or "").strip()
+    err = None
+    if key == "max_views":
+        try:
+            n = int(val)
+            if not (1 <= n <= 10000):
+                err = "عدد باید بین ۱ تا ۱۰۰۰ باشد"
+        except Exception:
+            err = "عدد نامعتبر"
+        if not err:
+            stg["max_views"] = n
+    elif key == "expires":
+        try:
+            h = float(val)
+            if h < 0:
+                err = "عدد منفی نامعتبر"
+        except Exception:
+            err = "عدد نامعتبر"
+        if not err:
+            with get_db() as c:
+                c.execute("UPDATE files SET expires_at=? WHERE id=?", (None if h <= 0 else _t.time() + h * 3600, info["file_id"]))
+    else:
+        if len(val) > 500:
+            err = "حداکثر ۵۰۰ نویسه"
+        else:
+            stg[key] = val
+    if err:
+        return _render(tpl, form_title=title, form_type=ftype, form_cur=val, mgmt_token=mgmt_token, form_error=err), 400
+    if key != "expires":
+        with get_db() as c:
+            c.execute("UPDATE files SET settings=? WHERE id=?", (_jf.dumps(stg, ensure_ascii=False), info["file_id"]))
+    session.pop("stepup_form", None)
+    session["stepup_msg"] = f"{title} اعمال شد"
+    audit("MGMT_EDIT_" + action.upper(), client_ip(), f"file_id={info['file_id']}")
+    return redirect(f"/manage/panel/{mgmt_token}")
 
 
 def register(app):

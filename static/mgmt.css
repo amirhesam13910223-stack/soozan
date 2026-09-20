@@ -143,3 +143,5 @@
 .mp-dead{background:#ef44441a;border:1.5px solid #ef444466;color:#ef4444;border-radius:16px;
   padding:18px;text-align:center;font-size:15px;font-weight:800;margin-bottom:16px;
   box-shadow:0 4px 14px -6px #ef444433}
+
+.mp-ok{background:#22c55e1a;border:1.5px solid #22c55e66;color:#22c55e;border-radius:16px;padding:14px;text-align:center;font-size:13.5px;font-weight:700;margin-bottom:16px}

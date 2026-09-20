@@ -13,6 +13,12 @@
     <div class="mp-meta">{{ file_info.mime }} · {{ file_info.size_kb }} KB</div>
   </div>
 
+  {% if stepup_msg %}
+  <div class="mp-ok">✅ {{ stepup_msg }}</div>
+  {% endif %}
+  {% if recent_wrong %}
+  <div class="mp-dead">⚠️ {{ recent_wrong.count }} تلاش رمز غلط در ۱۰ دقیقه اخیر از IP: {{ recent_wrong.ips }}</div>
+  {% endif %}
   {% if file_info.status_group == 'bad' %}
   <div class="mp-dead">⚠️ این فایل دیگر موجود نیست</div>
   {% endif %}
@@ -36,6 +42,37 @@
   <div class="mp-section">
     <h3>📋 جزئیات وضعیت فایل</h3>
     <p style="font-size:13px;line-height:1.9;color:var(--dim);margin:0">{{ file_info.status_detail }}</p>
+  </div>
+
+  {% if file_info.exp_ts %}
+  <div class="mp-section">
+    <h3>⏳ زمان تا انقضا</h3>
+    <div id="exp-count" data-exp="{{ file_info.exp_ts }}" data-dead="{{ 1 if file_info.status_group == 'bad' else 0 }}" data-created="{{ file_info.created_ts }}" style="font-family:var(--mono);font-size:19px;font-weight:800;direction:ltr;text-align:center"></div>
+    <div class="ot-progress" style="margin-top:12px"><div class="ot-progress-bar" id="exp-bar"></div></div>
+  </div>
+  {% endif %}
+  <div class="mp-section">
+    <h3>📜 لاگ مشاهده</h3>
+    {% if views_rows %}
+    <div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">
+      <tr style="color:var(--dim)"><th style="text-align:right;padding:6px">زمان</th><th style="text-align:right;padding:6px">IP</th><th style="text-align:right;padding:6px">دستگاه</th><th style="text-align:right;padding:6px">مدت</th></tr>
+      {% for v in views_rows %}<tr style="border-top:1px solid var(--border)"><td style="padding:6px">{{ v.ts_fa }}</td><td style="padding:6px;direction:ltr">{{ v.ip }}</td><td style="padding:6px">{{ v.dev }}</td><td style="padding:6px">{{ v.dur }}</td></tr>{% endfor %}
+    </table></div>
+    {% else %}<p style="color:var(--dim);font-size:12.5px;margin:0">هنوز مشاهده‌ای ثبت نشده.</p>{% endif %}
+  </div>
+
+  <div class="mp-section">
+    <h3>📝 یادداشت خصوصی من</h3>
+    <p style="font-size:13px;color:var(--dim);line-height:1.8;white-space:pre-wrap;margin:0 0 10px">{{ file_info.note or "یادداشتی نیست." }}</p>
+    <button class="mp-btn" data-action="edit_note" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ ویرایش یادداشت</button>
+  </div>
+
+  <div class="mp-section">
+    <h3>💬 پیام‌های بیننده</h3>
+    <div class="mp-row"><span class="k">خوش‌آمد</span><span class="v fa">{{ file_info.intro[:40] or "—" }}</span></div>
+    <div class="mp-row"><span class="k">پس از سوختن</span><span class="v fa">{{ file_info.endm[:40] or "—" }}</span></div>
+    <button class="mp-btn" data-action="edit_intro" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ پیام خوش‌آمد</button>
+    <button class="mp-btn" data-action="edit_end" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ پیام پس از سوختن</button>
   </div>
 
   <div class="mp-section">
@@ -73,6 +110,12 @@
 
   <div class="mp-section">
     <h3>🔥 عملیات حساس <span style="font-size:11px;color:var(--dim);font-weight:500">(نیاز به کد ۶ رقمی)</span></h3>
+    <p style="font-size:11.5px;color:var(--dim);margin:0 0 10px">پس از سوزاندن، فایل رمزنگاری‌شده تا ۱ ساعت در سطل بازیافت می‌ماند و قابل بازگشت است.</p>
+    <button class="mp-btn" data-action="edit_capacity" {% if file_info.status_group == 'bad' %}disabled{% endif %}>✏️ تغییر ظرفیت بازدید</button>
+    <button class="mp-btn" data-action="edit_expiry" {% if file_info.status_group == 'bad' %}disabled{% endif %}>⏳ تغییر زمان انقضا</button>
+    {% if file_info.trash %}<a class="mp-btn mp-btn-primary" style="text-decoration:none" href="/manage/restore/{{ mgmt_token }}">📥 بازیابی فایل ({{ file_info.trash.left_min }} دقیقه مانده)</a>
+    {% else %}<button class="mp-btn" disabled>📥 بازیابی فایل</button>{% endif %}
+    <button class="mp-btn" data-action="revoke_sessions">🚪 خروج از همه نشست‌های مدیریت</button>
     <button class="mp-btn" data-action="copy_id" {% if file_info.status_group == 'bad' %}disabled{% endif %}>📋 کپی مجدد آیدی فایل</button>
     <button class="mp-btn mp-btn-danger" data-action="burn" {% if not file_info.disk_exists or file_info.status_group == 'bad' %}disabled{% endif %}>🔥 سوزاندن کامل فایل</button>
   </div>
@@ -172,6 +215,23 @@
     document.getElementById("copy-modal").style.display = "none";
   });
   document.getElementById("mp-cancel").addEventListener("click", closeModal);
+  /* شمارش معکوس انقضا */
+  (function(){
+    var el = document.getElementById("exp-count");
+    if(!el) return;
+    var exp = parseFloat(el.dataset.exp), cr = parseFloat(el.dataset.created || "0");
+    if(el.dataset.dead === "1"){ el.textContent = "۰۰:۰۰:۰۰ — غیرفعال"; el.style.color = "#ef4444"; if(bar) bar.style.width = "0%"; return; }
+    var bar = document.getElementById("exp-bar");
+    function fmt(sec){ var d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), ss=Math.floor(sec%60);
+      return (d ? d + " روز و " : "") + String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0") + ":" + String(ss).padStart(2,"0"); }
+    function tick(){ var left = exp - Date.now()/1000;
+      if(left <= 0){ el.textContent = "منقضی شده ⏳"; el.style.color = "#ef4444"; if(bar) bar.style.width = "0%"; return; }
+      el.textContent = fmt(left);
+      var total = Math.max(exp - (cr || exp - 86400), 60);
+      if(bar) bar.style.width = Math.min(100, (left / total) * 100) + "%";
+      setTimeout(tick, 1000); }
+    tick();
+  })();
   /* auto-refresh: داده در لحظه */
   setInterval(function(){ if(modal.style.display !== "flex") location.reload(); }, 20000);
   modal.addEventListener("click", function(ev){ if(ev.target === modal) closeModal(); });

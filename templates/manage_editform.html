@@ -1,0 +1,21 @@
+{% extends "app.html" %}
+{% block head %}<link rel="stylesheet" href="/static/mgmt.css">{% endblock %}
+{% block title %}سوزان — {{ form_title }}{% endblock %}
+{% block app_content %}
+<div class="mp-wrap">
+  <div class="mp-section" style="max-width:460px;margin:30px auto">
+    <h3>🔐 {{ form_title }}</h3>
+    <p style="color:var(--dim);font-size:12.5px;margin-bottom:14px">تأیید دومرحله‌ای انجام شد ✔ — مقدار جدید را وارد کن:</p>
+    {% if form_error %}<div class="mp-dead" style="padding:10px;font-size:12.5px">{{ form_error }}</div>{% endif %}
+    <form method="post">
+      {% if form_type == "textarea" %}
+      <textarea class="mp-modal-input" name="value" rows="4" style="min-height:110px;text-align:right;letter-spacing:0;font-size:13px">{{ form_cur }}</textarea>
+      {% else %}
+      <input class="mp-modal-input" name="value" type="number" step="any" min="0" value="{{ form_cur }}" style="font-size:16px;letter-spacing:1px">
+      {% endif %}
+      <button class="mp-modal-go" type="submit" style="margin-top:10px">اعمال تغییر</button>
+      <a class="mp-link" href="/manage/panel/{{ mgmt_token }}">انصراف</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -59,21 +59,21 @@ rd3 = {"id": -3, "uid": "v2x", "status": "active", "views_count": 0, "settings":
 ck("پرچم مصرف → بدون بازیابی", ap._restore_left(rd3, None) is None)
 con = sqlite3.connect("data/burn.db"); con.execute("DELETE FROM meta WHERE key='restore_used_v2x'"); con.commit(); con.close()
 
-print("═══ بخش ۲: یکپارچه HTTP ═══")
-import requests
-B = "http://127.0.0.1:8000"
-S = requests.Session()
+print("═══ بخش ۲: یکپارچه (test_client — بدون نیاز به سرور) ═══")
+from app import app as _flask_app
+_flask_app.config["TESTING"] = True
+_c = _flask_app.test_client()
 
 # ۸) OTP بدون نشست → ریدایرکت به ورود (PRG گارد)
-r = S.get(B + "/manage/otp", allow_redirects=False)
+r = _c.get("/manage/otp")
 ck("GET /manage/otp بدون نشست → 302", r.status_code == 302)
 
 # ۹) توکن نامعتبر → ورود
-r = S.get(B + "/manage/panel/999|1|bad", allow_redirects=False)
+r = _c.get("/manage/panel/999|1|bad")
 ck("توکن نامعتبر → ریدایرکت", r.status_code in (301, 302))
 
 # ۱۰) هدر no-store روی صفحه ورود مدیریت
-r = S.get(B + "/manage")
+r = _c.get("/manage")
 ck("هدر no-store روی /manage", "no-store" in r.headers.get("Cache-Control", ""))
 
 # ۱۱) اکشن فایل مرده → 409 (اگر فایل سوخته موجود باشد)

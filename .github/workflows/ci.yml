@@ -29,3 +29,4 @@ jobs:
         run: |
           chmod +x run.sh test_sozan_v1.py 2>/dev/null || true
           python3 test_sozan_v1.py
+      - run: python3 test_sozan_v2.py

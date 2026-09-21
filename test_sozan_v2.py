@@ -81,11 +81,16 @@ con = sqlite3.connect("data/burn.db"); con.row_factory = sqlite3.Row
 dead = con.execute("SELECT id FROM files WHERE status='burned' LIMIT 1").fetchone(); con.close()
 if dead:
     try:
-        rv = ap._run_action("pause", dead["id"])
-        code = rv[1] if isinstance(rv, tuple) else 200
-        ck("اکشن روی فایل مرده → 409", code == 409)
-    except Exception:
-        ck("اکشن روی فایل مرده بدون exception", False)
+        from app import app as _flask_app
+        with _flask_app.app_context(), _flask_app.test_request_context():
+            rv = ap._run_action("pause", dead["id"])
+        if isinstance(rv, tuple):
+            code = rv[1]
+            ck("اکشن روی فایل مرده → 409", code == 409)
+        else:
+            ck("اکشن روی فایل مرده → tuple", False)
+    except Exception as e:
+        ck(f"اکشن روی فایل مرده بدون exception ({type(e).__name__})", False)
 else:
     print("  - (فایل سوخته برای تست نیست)")
 

@@ -183,7 +183,12 @@ def manage_enter():
     tpl = (Path(__file__).parent / "templates" / "manage_enter.html").read_text(encoding="utf-8")
 
     if request.method == "GET":
-        return _render(tpl, error=None, seconds_left=120)
+        from flask import make_response
+        _resp = make_response(_render(tpl, error=None, seconds_left=120))
+        _resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+        _resp.headers["Pragma"] = "no-cache"
+        _resp.headers["Expires"] = "0"
+        return _resp
 
     if not Security.rate_check(ip, "manage_enter"):
         audit("MANAGE_ENTER_RATE_LIMITED", ip, level="WARN")

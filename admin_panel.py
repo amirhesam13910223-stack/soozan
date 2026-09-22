@@ -755,6 +755,7 @@ def manage_restore_pw(mgmt_token):
         return redirect(f"/manage/panel/{mgmt_token}")
     tpl = (Path(__file__).parent / "templates" / "manage_restore_pw.html").read_text(encoding="utf-8")
     if request.method == "GET":
+        print("BURNPW: رندر صفحه رمز حساب", flush=True)
         return _render(tpl, mgmt_token=mgmt_token, pw_error=None)
     pw = request.form.get("password") or ""
     with get_db() as c:
@@ -844,8 +845,26 @@ def manage_restore_dl(mgmt_token):
         traceback.print_exc()
         return "خطای سرور در دانلود بازیابی", 500
 
+FORMS = {
+    "edit_capacity": ("تغییر ظرفیت بازدید", "number", "max_views"),
+    "edit_expiry": ("تغییر زمان انقضا", "expiry", "expires"),
+    "edit_note": ("یادداشت خصوصی مالک", "textarea", "private_note"),
+    "edit_intro": ("پیام خوش‌آمد بیننده", "textarea", "intro_message"),
+    "edit_end": ("پیام پس از سوختن", "textarea", "end_message"),
+}
+
+
 @bp.route("/manage/editform/<mgmt_token>/<action>", methods=["GET", "POST"])
 def manage_editform(mgmt_token, action):
+    import traceback as _tb
+    try:
+        return _manage_editform_impl(mgmt_token, action)
+    except Exception as _e:
+        _tb.print_exc()
+        return f"خطای فرم ویرایش: {_e}", 500
+
+
+def _manage_editform_impl(mgmt_token, action):
     info = verify_mgmt_token(mgmt_token)
     st = session.get("stepup_form")
     if not info:
@@ -1012,11 +1031,24 @@ def manage_otp_page():
 
 @bp.route("/manage/burn_pw/<mgmt_token>", methods=["GET", "POST"])
 def manage_burn_pw(mgmt_token):
+    import traceback as _tb2
+    try:
+        return _manage_burn_pw_impl(mgmt_token)
+    except Exception as _e2:
+        _tb2.print_exc()
+        return f"خطای صفحه سوزاندن: {_e2}", 500
+
+
+def _manage_burn_pw_impl(mgmt_token):
+    print("BURNPW: hit", request.method, flush=True)
+    audit("BURN_PW_HIT", client_ip(), "GET/POST burn_pw")
     info = verify_mgmt_token(mgmt_token)
     if not info:
+        print("BURNPW: توکن نامعتبر → ورود", flush=True)
+        audit("BURN_PW_NO_TOKEN", client_ip())
         return redirect(url_for("admin_panel.manage_enter"))
     with get_db() as c:
-        row = c.execute("SELECT id, uid, owner_id, status, views_count, settings, expires_at FROM files WHERE id=?", (info["file_id"],)).fetchone()
+        row = c.execute("SELECT id, uid, owner_id, status, views_count, settings, expires_at, file_path FROM files WHERE id=?", (info["file_id"],)).fetchone()
     if not row:
         return redirect(url_for("admin_panel.manage_enter"))
     rd = dict(row)
@@ -1028,6 +1060,8 @@ def manage_burn_pw(mgmt_token):
     from core import real_status as _rsx
     _k, _f, _g, _d = _rsx(rd, _stg, bool(rd.get("file_path") and Path(rd["file_path"]).exists()))
     if _g == "bad":
+        print("BURNPW: وضعیت مرده → ریدایرکت پنل | status =", _k, flush=True)
+        audit("BURN_PW_REDIRECT_DEAD", client_ip(), f"status={_k}")
         return redirect(f"/manage/panel/{mgmt_token}")
     tpl = (Path(__file__).parent / "templates" / "manage_burn_pw.html").read_text(encoding="utf-8")
     if request.method == "GET":
@@ -1049,6 +1083,7 @@ def manage_burn_pw(mgmt_token):
         audit("BURN_PW_WRONG", client_ip())
         return _render(tpl, mgmt_token=mgmt_token, pw_error="رمز عبور حساب صحیح نیست"), 401
     session.pop("burn_rl", None)
+    print("BURNPW: رمز درست → stepup", flush=True)
     session["burn_pw_ok"] = {"token": mgmt_token, "exp": _t.time() + 120}
     audit("BURN_PW_OK", client_ip())
     return redirect(f"/manage/stepup/{mgmt_token}/burn")

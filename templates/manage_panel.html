@@ -123,7 +123,11 @@
     {% else %}<button class="mp-btn" disabled>📥 بازیابی فایل</button>{% endif %}
     <button class="mp-btn" data-action="revoke_sessions">🚪 خروج از همه نشست‌های مدیریت</button>
     <button class="mp-btn" data-action="copy_id" {% if file_info.status_group == 'bad' %}disabled{% endif %}>📋 کپی مجدد آیدی فایل</button>
-    <button class="mp-btn mp-btn-danger" data-action="burn" {% if not file_info.disk_exists or file_info.status_group == 'bad' %}disabled{% endif %}>🔥 سوزاندن کامل فایل</button>
+    {% if file_info.status_group == 'bad' or not file_info.disk_exists %}
+    <button class="mp-btn mp-btn-danger" disabled>🔥 سوزاندن کامل فایل</button>
+    {% else %}
+    <a class="mp-btn mp-btn-danger" style="text-decoration:none" href="/manage/burn_pw/{{ mgmt_token }}">🔥 سوزاندن کامل فایل</a>
+    {% endif %}
   </div>
 
   <a href="/dashboard" class="mp-link">↩ بازگشت به داشبورد</a>

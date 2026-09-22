@@ -624,3 +624,8 @@ if __name__ == "__main__":
         )
     except ImportError:
         app.run(host="0.0.0.0", port=PORT, threaded=True, debug=False)
+
+
+@app.errorhandler(ValueError)
+def _value_error(e):
+    return f"<div style='font-family:sans-serif;direction:rtl;padding:40px;text-align:center'><h2>⚠️ خطای اعتبارسنجی</h2><p>{e}</p><a href='/'>بازگشت</a></div>", 400

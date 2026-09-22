@@ -897,6 +897,9 @@ DEFAULT_SETTINGS = {
 
 def hash_file_password(pw: str, salt: bytes = None) -> str:
     """هش رمز فایل با scrypt (پارامترهای سبک‌تر از رمز کاربر)"""
+    _ok, _msg = check_pw_rules(pw)
+    if not _ok:
+        raise ValueError(_msg)
     if not pw:
         raise ValueError("رمز خالی مجاز نیست")
     if salt is None:
@@ -1129,3 +1132,19 @@ def real_status(rd, stg, disk_exists):
     if rd.get("expires_at") and now > float(rd["expires_at"]):
         return "expired", "غیرفعال ⚫", "bad", "زمان انقضا رسیده است → فایل غیرفعال شد."
     return "active", "فعال 🟢", "ok", f"فایل فعال و در انتظار مشاهده ({vc}/{mv if mv else '∞'} بازدید)."
+
+
+def check_pw_rules(pw: str):
+    """قوانین رمز فایل ویزارد. خروجی: (ok, پیام)"""
+    import re as _re2
+    if not pw or len(pw) < 8:
+        return False, "رمز باید حداقل ۸ کاراکتر باشد"
+    if _re2.search(r"[\u0600-\u06FF]", pw):
+        return False, "رمز نباید حروف فارسی/عربی داشته باشد"
+    if pw.isdigit():
+        return False, "رمز نباید فقط عدد باشد"
+    if not (_re2.search(r"[A-Za-z]", pw) and _re2.search(r"\d", pw)):
+        return False, "رمز باید شامل حرف انگلیسی و عدد باشد"
+    if " " in pw:
+        return False, "رمز نباید فاصله داشته باشد"
+    return True, ""

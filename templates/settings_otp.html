@@ -14,8 +14,9 @@
     </div>
     {% set resend_route = "/settings/otp/resend" %}{% include "otp_timer.html" %}
     <form method="post" action="/settings/otp/verify">
-      <div class="field"><input class="input" name="code" inputmode="numeric" maxlength="6" required placeholder="------"
-         style="direction:ltr;text-align:center;letter-spacing:6px;font-family:var(--mono)"></div>
+      <div class="field">  {% include "otp_boxes.html" %}
+  <script src="/static/otp_boxes.js" defer></script>
+</div>
       <button class="btn btn-acc btn-block" type="submit">تأیید کد</button>
     </form>
     <a class="btn btn-ghost btn-block" href="/settings" style="margin-top:10px">انصراف</a>

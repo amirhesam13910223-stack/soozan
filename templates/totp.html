@@ -87,8 +87,8 @@ h1{font-size:22px;font-weight:700;margin-bottom:8px;text-align:center}
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   
   <form method="POST">
-    <input type="text" name="code" class="input" placeholder="۱۲۳۴۵۶"
-           maxlength="8" autocomplete="one-time-code" required autofocus>
+  {% include "otp_boxes.html" %}
+  <script src="/static/otp_boxes.js" defer></script>
     <button type="submit" class="btn">ورود</button>
   </form>
   

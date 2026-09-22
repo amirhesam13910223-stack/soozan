@@ -144,7 +144,7 @@ def register():
             return render(_read("auth_register.html"),
                           error="تلاش بیش از حد. چند دقیقه صبر کنید.")
         # مرحله ۲: تأیید کد
-        if request.form.get("step") == "2":
+        if session.get("reg_pending") and request.form.get("code") is not None:
             pend = session.get("reg_pending")
             code = request.form.get("code", "").strip()
             if not pend or _time.time() > pend.get("exp", 0):
@@ -152,7 +152,9 @@ def register():
                 return render(_read("auth_register.html"), error="جلسه منقضی شد؛ دوباره شروع کنید.")
             if pend.get("tries", 0) >= 4:
                 pend["locked"] = True; pend["code"] = ""; session["reg_pending"] = pend
-                return render(_read("auth_register.html"), error="تلاش بیش از حد؛ از ابتدا ثبت‌نام کنید.")
+                return render(_read("auth_verify.html"), phone=pend["phone"], error="کد باطل شد؛ ارسال مجدد را بزن.",
+                                            otp_action="/register", otp_submit="ثبت‌نام ←", otp_desc="کد تأیید ثبت‌نام",
+                                            otp_resend_url="/register/resend", otp_cancel_url="/")
             if not _otp_eq(code, pend.get("code", "")):
                 pend["tries"] = pend.get("tries", 0) + 1
                 session["reg_pending"] = pend
@@ -195,6 +197,10 @@ def register():
                                   "code": code, "exp": _time.time() + 120, "tries": 0}
         audit("REGISTER_CODE", ip, f"user={username} (دمو)")
         return render(_read("auth_verify.html"), demo_code=code, phone=phone)
+    if session.get("reg_pending"):
+        pend = session["reg_pending"]
+        rem = max(0, int(pend.get("exp", 0) - _time.time()))
+        return render(_read("auth_verify.html"), demo_code=pend.get("code") or None, phone=pend["phone"], seconds_left=rem, error=None if rem else "کد منقضی شد؛ ارسال مجدد را بزن.", otp_action="/register", otp_submit="ثبت‌نام ←", otp_desc="کد تأیید ثبت‌نام", otp_resend_url="/register/resend", otp_cancel_url="/")
     return render(_read("auth_register.html"))
 
 
@@ -205,15 +211,18 @@ def login_phone():
     """مرحله دوم ورود: کد یک‌بار مصرف (فعلاً دمو)"""
     import time as _time
     pend = session.get("login_pending")
-    if not pend or _time.time() > pend.get("exp", 0):
-        session.pop("login_pending", None)
+    if not pend:
         return redirect("/login")
+    if _time.time() > pend.get("exp", 0):
+        return render(_read("auth_otp.html"), phone_mask=_mask(pend["phone"]), error="کد منقضی شد؛ ارسال مجدد را بزن.", otp_action="/login/phone", otp_submit="ورود ←", otp_desc="کد یک‌بار مصرف ورود", otp_resend_url="/login/phone/resend", otp_cancel_url="/login")
     if request.method == "POST":
         ip = client_ip()
         code = request.form.get("code", "").strip()
         if pend.get("tries", 0) >= 4:
             pend["locked"] = True; pend["code"] = ""; session["login_pending"] = pend
-            return render(_read("auth.html"), mode="login", error="تلاش بیش از حد؛ دوباره وارد شوید.")
+            return render(_read("auth_otp.html"), phone_mask=_mask(pend["phone"]), error="کد باطل شد؛ ارسال مجدد را بزن.",
+                                            otp_action="/login/phone", otp_submit="ورود ←", otp_desc="کد یک‌بار مصرف ورود",
+                                            otp_resend_url="/login/phone/resend", otp_cancel_url="/login")
         if not _otp_eq(code, pend.get("code", "")):
             pend["tries"] = pend.get("tries", 0) + 1
             session["login_pending"] = pend
@@ -230,7 +239,10 @@ def login_phone():
         session["user_id"] = user_id
         audit("LOGIN_OK", ip, f"user_id={user_id} (otp)")
         return redirect("/dashboard")
-    return render(_read("auth_otp.html"), demo_code=pend["code"], phone_mask=_mask(pend["phone"]))
+    return render(_read("auth_otp.html"), demo_code=pend["code"], phone_mask=_mask(pend["phone"]),
+                    seconds_left=max(0, int(pend.get("exp", 0) - _time.time())),
+                    otp_action="/login/phone", otp_submit="ورود ←", otp_desc="کد یک‌بار مصرف ورود",
+                    otp_resend_url="/login/phone/resend", otp_cancel_url="/login")
 
 @bp.route("/logout", methods=["GET", "POST"])
 def logout():
@@ -268,7 +280,7 @@ def login_totp():
     if request.method == "POST":
         ip = client_ip()
         if not Security.rate_check(ip, "totp"):
-            return render(_read("totp.html"), mode="login",
+            return render(_read("totp_login.html"),
                          error="تلاش بیش از حد. چند دقیقه صبر کنید.")
         
         code = request.form.get("code", "").strip()
@@ -280,7 +292,7 @@ def login_totp():
         
         if not ok:
             Security.violation(ip, "totp_login_fail")
-            return render(_read("totp.html"), mode="login", error=msg)
+            return render(_read("totp_login.html"), error=msg)
         
         # ورود کامل
         session.pop("pending_2fa_user_id", None)
@@ -288,7 +300,7 @@ def login_totp():
         audit("LOGIN_2FA_OK", ip, f"user_id={pending_id}")
         return redirect("/dashboard")
     
-    return render(_read("totp.html"), mode="login")
+    return render(_read("totp_login.html"), otp_action="/login/totp", otp_submit="تأیید ←", otp_desc="کد برنامه authenticator یا کد پشتیبان", otp_no_timer=True, otp_no_resend=True, otp_cancel_url="/login")
 
 
 @bp.route("/account/2fa", methods=["GET"])

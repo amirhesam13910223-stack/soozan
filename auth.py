@@ -159,7 +159,7 @@ def register():
                 pend["tries"] = pend.get("tries", 0) + 1
                 session["reg_pending"] = pend
                 return render(_read("auth_verify.html"), demo_code=pend["code"],
-                              phone=pend["phone"], error="کد نادرست است.")
+                              phone=pend["phone"], error="کد نادرست است.", seconds_left=max(0, int(pend.get('exp', 0) - _time.time())), otp_action='/register', otp_submit='ثبت‌نام ←', otp_desc='کد تأیید ثبت‌نام', otp_resend_url='/register/resend', otp_cancel_url='/')
             ok, msg = Auth.register(pend["username"], pend["password"])
             if not ok:
                 session.pop("reg_pending", None)
@@ -227,7 +227,7 @@ def login_phone():
             pend["tries"] = pend.get("tries", 0) + 1
             session["login_pending"] = pend
             return render(_read("auth_otp.html"), demo_code=pend["code"],
-                          phone_mask=_mask(pend["phone"]), error="کد نادرست است.")
+                          phone_mask=_mask(pend["phone"]), error="کد نادرست است.", seconds_left=max(0, int(pend.get('exp', 0) - _time.time())), otp_action='/login/phone', otp_submit='ورود ←', otp_desc='کد یک‌بار مصرف ورود', otp_resend_url='/login/phone/resend', otp_cancel_url='/login')
         user_id = pend["user_id"]
         session.pop("login_pending", None)
         if Auth.is_totp_enabled(user_id):

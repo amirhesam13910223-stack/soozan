@@ -60,7 +60,7 @@
 </aside>
 
 <nav class="ux-bottom">
-  <a class="ux-tab {{ 'active' if request.path in ('/',) or request.path.startswith(('/dashboard','/profile','/wizard','/settings')) else '' }}" href="/dashboard"><span class="ic">🏠</span> سازنده</a>
+  <a class="ux-tab {{ 'active' if request.path in ('/',) or request.path.startswith(('/dashboard','/profile','/wizard','/settings','/login','/register')) else '' }}" href="/dashboard"><span class="ic">🏠</span> سازنده</a>
 {% if request.remote_addr in ("127.0.0.1", "::1") %}  <a class="ux-tab {{ 'active' if request.path.startswith('/manage') }}" href="/manage"><span class="ic">🛡️</span> پنل مدیریت</a>{% endif %}
 </nav>
 

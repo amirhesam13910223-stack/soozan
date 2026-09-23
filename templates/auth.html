@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
 {% block title %}{% if mode == "login" %}ورود{% else %}ثبت‌نام{% endif %} — سوزان</main>
 {% endblock %}
 
@@ -12,7 +12,7 @@
 </style>
 {% endblock %}
 
-{% block body %}
+{% block app_content %}
 <main class='auth-wrap'>
 <div class="wrap" style="max-width:430px;margin-top:8vh">
   <div style="text-align:center;margin-bottom:26px" data-reveal>

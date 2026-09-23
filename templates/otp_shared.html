@@ -1,4 +1,6 @@
 {% set otp_dead = error and ("باطل" in error or "منقضی" in error) %}
+{% set seconds_left = seconds_left|default(otp_rem) %}
+{% set demo_code = demo_code|default(otp_pend.code if (otp_dev and otp_pend) else none) %}
 <div class="ot-wrap">
   <div class="ot-card">
     <div class="ot-icon">🛡️</div>
@@ -15,7 +17,7 @@
     <div class="ot-progress"><div class="ot-progress-bar" id="ot-bar" style="width:{{ ((seconds_left|default(120)) / 120 * 100)|round }}%"></div></div>
     {% endif %}
     {% if error %}<div class="ot-alert">⚠️ {{ error }}</div>{% endif %}
-    <form method="post" action="{{ otp_action|default('/manage/otp') }}" id="ot-form">
+    <form method="post" action="{{ otp_action|default(request.path) }}" id="ot-form">
       <div class="ot-boxes" id="ot-boxes">
         {% for i in range(6) %}<input class="ot-box" type="text" inputmode="numeric" maxlength="1" data-idx="{{ i }}">{% endfor %}
       </div>
@@ -23,7 +25,7 @@
       <button class="ot-btn" type="submit" id="ot-submit" disabled>{{ otp_submit|default("ورود به پنل مدیریت ←") }}</button>
     </form>
     {% if not otp_no_resend %}
-    <form method="post" action="{{ otp_resend_url|default(otp_action|default('/manage/otp')) }}" id="ot-resend-form">
+    <form method="post" action="{{ otp_resend_url|default(otp_action|default(request.path)) }}" id="ot-resend-form">
       <input type="hidden" name="resend" value="1">
       <button class="ot-resend" type="submit" id="ot-resend" {% if not otp_dead %}disabled{% endif %}>
         🔄 ارسال مجدد کد{% if not otp_dead %} (بعد از پایان زمان){% endif %}

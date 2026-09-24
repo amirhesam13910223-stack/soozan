@@ -31,6 +31,16 @@ bootstrap()
 import admin_infra  # migration خودکار اجرا می‌شود
 
 app = Flask(__name__, template_folder="templates")
+
+
+def client_ip():
+    """گرفتن IP کلاینت با در نظر گرفتن proxy"""
+    from flask import request
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr
+
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 app.secret_key = MasterKeyManager.instance().session_key()
 
@@ -227,9 +237,9 @@ def settings_profile():
 @app.route("/settings/phone/start", methods=["GET", "POST"])
 def settings_phone_start():
     """تغییر شماره — گام ۱: کد به شماره فعلی"""
-    from flask import request as _rq, session as _ss
+    from flask import request, session as _ss
     u = _set_user()
-    if u and _rq.method == "GET":
+    if u and request.method == "GET":
         pend = _ss.get("set_otp")
         if pend:
             return _set_render("settings_otp.html", demo_code=pend.get("code"), desc=pend.get("desc", ""),

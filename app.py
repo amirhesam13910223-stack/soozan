@@ -263,6 +263,14 @@ def settings_phone_new():
     if np == u["phone"]:
         session["demo_sms"] = "❌ شماره جدید با شماره فعلی یکی است"
         return redirect("/settings/phone/new")
+    # چک uniqueness: شماره نباید متعلق به حساب دیگری باشد
+    from core import get_db
+    with get_db() as c:
+        existing = c.execute("SELECT id, username FROM users WHERE phone=? AND id!=?", (np, u["id"])).fetchone()
+    if existing:
+        session["demo_sms"] = f"❌ شماره {np} قبلاً برای حساب دیگری ثبت شده است"
+        audit("PHONE_CHANGE_DENIED", client_ip(), f"phone={np} already owned by user_id={existing['id']}")
+        return redirect("/settings/phone/new")
     return _set_otp("phone_new", np, "تغییر شماره — گام ۳: تأیید شماره جدید", new_phone=np)
 
 @app.route("/settings/password/start", methods=["POST"])

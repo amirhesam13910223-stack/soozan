@@ -343,7 +343,7 @@ def settings_otp_verify():
         session["set_otp"] = pend
         return _set_render("settings_otp.html", demo_code=pend["code"], desc=pend["desc"],
                            phone=_mask_phone(pend["phone"]),
-                           error=f"کد اشتباه است. {max(0, 4 - pend['tries'])} تلاش باقی مانده",
+                           error="کد اشتباه است.",
                            remaining_time=max(0, int(pend.get("exp", 0) - _t.time())),
                            remaining_attempts=max(0, 4 - pend["tries"]), otp_action="/settings/otp/verify", otp_submit="تأیید کد", otp_resend_url="/settings/otp/resend", otp_cancel_url="/settings")
     purpose = pend.get("purpose")

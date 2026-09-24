@@ -200,7 +200,10 @@ def _set_otp(purpose, phone, desc, new_phone=None):
     code = f"{_sec.randbelow(1000000):06d}"
     session["set_otp"] = {"purpose": purpose, "code": code, "exp": _t.time() + 120,
                           "tries": 0, "phone": phone, "new_phone": new_phone, "desc": desc}
-    return _set_render("settings_otp.html", demo_code=code, desc=desc, phone=_mask_phone(phone))
+    return _set_render("settings_otp.html", demo_code=code, desc=desc,
+                           phone=_mask_phone(phone),
+                           remaining_time=120,
+                           remaining_attempts=4, otp_action="/settings/otp/verify", otp_submit="تأیید کد", otp_resend_url="/settings/otp/resend", otp_cancel_url="/settings")
 
 def _mask_phone(ph):
     return (ph[:4] + "***" + ph[-2:]) if ph and len(ph) >= 7 else (ph or "")
@@ -221,10 +224,21 @@ def settings_profile():
         session["demo_sms"] = None
     return redirect("/settings")
 
-@app.route("/settings/phone/start", methods=["POST"])
+@app.route("/settings/phone/start", methods=["GET", "POST"])
 def settings_phone_start():
     """تغییر شماره — گام ۱: کد به شماره فعلی"""
+    from flask import request as _rq, session as _ss
     u = _set_user()
+    if u and _rq.method == "GET":
+        pend = _ss.get("set_otp")
+        if pend:
+            return _set_render("settings_otp.html", demo_code=pend.get("code"), desc=pend.get("desc", ""),
+                               phone=_mask_phone(pend["phone"]),
+                               remaining_time=max(0, int(pend.get("exp", 0) - __import__("time").time())),
+                               remaining_attempts=max(0, 4 - pend.get("tries", 0)),
+                               otp_action="/settings/otp/verify", otp_submit="تأیید کد",
+                               otp_resend_url="/settings/otp/resend", otp_cancel_url="/settings")
+        return redirect("/settings")
     if not u:
         return redirect("/login")
     return _set_otp("phone_old", u["phone"], "تغییر شماره — گام ۱: تأیید شماره فعلی")
@@ -331,7 +345,7 @@ def settings_otp_verify():
                            phone=_mask_phone(pend["phone"]),
                            error=f"کد اشتباه است. {max(0, 4 - pend['tries'])} تلاش باقی مانده",
                            remaining_time=max(0, int(pend.get("exp", 0) - _t.time())),
-                           remaining_attempts=max(0, 4 - pend["tries"]))
+                           remaining_attempts=max(0, 4 - pend["tries"]), otp_action="/settings/otp/verify", otp_submit="تأیید کد", otp_resend_url="/settings/otp/resend", otp_cancel_url="/settings")
     purpose = pend.get("purpose")
     session.pop("set_otp", None)
     u = _set_user()
@@ -628,6 +642,74 @@ def static_files(filename):
     from pathlib import Path as _P
     return send_from_directory(_P(__file__).parent / "static", filename)
 
+
+# ═══ ثبت‌کننده‌های سراسری (باید قبل از __main__ باشند) ═══
+@app.context_processor
+def _otp_global_ctx():
+    import time as _t3, os as _os3
+    path = request.path
+    order = []
+    if path.startswith("/settings"):
+        order = ["set_otp"]
+    elif path.startswith("/login/phone"):
+        order = ["login_pending"]
+    elif path.startswith("/register"):
+        order = ["reg_pending"]
+    elif path.startswith("/manage"):
+        order = ["mgmt_stepup", "manage_otp"]
+    order += [k for k in ("set_otp", "login_pending", "reg_pending", "mgmt_stepup", "manage_otp") if k not in order]
+    pend = None
+    for _k in order:
+        _v = session.get(_k)
+        if isinstance(_v, dict) and _v.get("code"):
+            pend = _v
+            break
+    rem = 120
+    if pend:
+        rem = max(0, int(pend.get("exp", 0) - _t3.time()))
+    dev = _os3.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or request.remote_addr in ("127.0.0.1", "::1", "localhost")
+    print("OTPCTX", request.path, "rem=", rem, "exp=", pend.get("exp") if pend else None, flush=True)
+    return dict(now_ts=_t3.time(), otp_pend=pend, otp_rem=rem, otp_dev=dev)
+
+@app.before_request
+def _generic_resend():
+    from flask import redirect as _red3
+    from urllib.parse import urlparse as _up3
+    def _return_path():
+        ref = request.referrer or ""
+        if ref:
+            rp = _up3(ref).path
+            if rp and not rp.endswith("/resend"):
+                return rp
+        pth = request.path
+        if pth.startswith("/settings"):
+            return "/settings/phone/start"
+        if pth.startswith("/register"):
+            return "/register"
+        if pth.startswith("/login/phone"):
+            return "/login/phone"
+        return pth
+    if request.method == "POST" and request.form.get("resend") == "1":
+        import secrets as _sec3, time as _t4
+        for _k in ('login_pending', 'manage_otp', 'mgmt_stepup', 'reg_pending', 'set_otp'):
+            _v = session.get(_k)
+            if isinstance(_v, dict) and _v.get("code"):
+                _v["code"] = f"{_sec3.randbelow(1000000):06d}"
+                _v["exp"] = _t4.time() + 120
+                _v["tries"] = 0
+                _v["locked"] = False
+                session[_k] = _v
+                session.modified = True
+                return _red3(_return_path())
+        return _red3(_return_path())
+
+@app.after_request
+def _no_store_html(resp):
+    if resp.mimetype and resp.mimetype.startswith("text/html"):
+        resp.headers["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
 if __name__ == "__main__":
     if DEV_MODE:
         print("!" * 56)
@@ -665,34 +747,5 @@ def _value_error(e):
     return f"<div style='font-family:sans-serif;direction:rtl;padding:40px;text-align:center'><h2>⚠️ خطای اعتبارسنجی</h2><p>{e}</p><a href='/'>بازگشت</a></div>", 400
 
 
-@app.context_processor
-def _otp_global_ctx():
-    import time as _t3, os as _os3
-    pend = None
-    for _k in ('login_pending', 'manage_otp', 'mgmt_stepup', 'reg_pending', 'set_otp'):
-        _v = session.get(_k)
-        if isinstance(_v, dict) and _v.get("code"):
-            pend = _v
-            break
-    rem = 120
-    if pend:
-        rem = max(0, int(pend.get("exp", 0) - _t3.time()))
-    dev = _os3.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or request.remote_addr in ("127.0.0.1", "::1", "localhost")
-    return dict(now_ts=_t3.time(), otp_pend=pend, otp_rem=rem, otp_dev=dev)
 
 
-@app.before_request
-def _generic_resend():
-    if request.method == "POST" and request.form.get("resend") == "1":
-        import secrets as _sec3, time as _t4
-        for _k in ('login_pending', 'manage_otp', 'mgmt_stepup', 'reg_pending', 'set_otp'):
-            _v = session.get(_k)
-            if isinstance(_v, dict) and _v.get("code"):
-                _v["code"] = f"{_sec3.randbelow(1000000):06d}"
-                _v["exp"] = _t4.time() + 120
-                _v["tries"] = 0
-                _v["locked"] = False
-                session[_k] = _v
-                session.modified = True
-                return redirect(request.path)
-        return redirect(request.path)

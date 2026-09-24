@@ -196,7 +196,7 @@ def register():
                                   "full_name": full_name, "phone": phone,
                                   "code": code, "exp": _time.time() + 120, "tries": 0}
         audit("REGISTER_CODE", ip, f"user={username} (دمو)")
-        return render(_read("auth_verify.html"), demo_code=code, phone=phone)
+        return render(_read("auth_verify.html"), demo_code=code, phone=phone, otp_action="/register", otp_submit="ثبت‌نام ←", otp_desc="کد تأیید ثبت‌نام", otp_resend_url="/register/resend", otp_cancel_url="/")
     if session.get("reg_pending"):
         pend = session["reg_pending"]
         rem = max(0, int(pend.get("exp", 0) - _time.time()))
@@ -281,7 +281,7 @@ def login_totp():
         ip = client_ip()
         if not Security.rate_check(ip, "totp"):
             return render(_read("totp_login.html"),
-                         error="تلاش بیش از حد. چند دقیقه صبر کنید.")
+                         error="تلاش بیش از حد. چند دقیقه صبر کنید.", otp_action="/login/totp", otp_submit="تأیید ←", otp_desc="کد برنامه authenticator یا کد پشتیبان", otp_no_timer=True, otp_no_resend=True, otp_cancel_url="/login")
         
         code = request.form.get("code", "").strip()
         
@@ -292,7 +292,7 @@ def login_totp():
         
         if not ok:
             Security.violation(ip, "totp_login_fail")
-            return render(_read("totp_login.html"), error=msg)
+            return render(_read("totp_login.html"), error=msg, otp_action="/login/totp", otp_submit="تأیید ←", otp_desc="کد برنامه authenticator یا کد پشتیبان", otp_no_timer=True, otp_no_resend=True, otp_cancel_url="/login")
         
         # ورود کامل
         session.pop("pending_2fa_user_id", None)

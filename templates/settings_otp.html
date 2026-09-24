@@ -1,10 +1,6 @@
 {% extends "app.html" %}
-{% block title %}تأیید کد — سوزان{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/mgmt.css">{% endblock %}
+{% block title %}سوزان — تأیید کد{% endblock %}
 {% block app_content %}
-{% set heading = desc|default("تأیید کد") %}
-{% set description = "کد به شماره " ~ phone|default("—") ~ " ارسال شد · ۲ دقیقه اعتبار · ۴ بار تلاش" %}
-{% set action_url = "/settings/otp/verify" %}
-{% set resend_url = "/settings/otp/resend" %}
-{% set cancel_url = "/settings" %}
-{% include "otp_unified_body.html" %}
+{% include "otp_shared.html" %}
 {% endblock %}

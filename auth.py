@@ -191,6 +191,13 @@ def register():
         if not _re.match(r"^09\d{9}$", phone):
             return render(_read("auth_register.html"), error="شماره موبایل معتبر نیست (مثال: 09123456789).",
                           username=username, full_name=full_name, phone=phone)
+        # چک uniqueness: شماره نباید قبلاً ثبت شده باشد
+        with get_db() as c:
+            phone_exists = c.execute("SELECT id, username FROM users WHERE phone=?", (phone,)).fetchone()
+        if phone_exists:
+            audit("REGISTER_DENIED", ip, f"phone={phone} already owned by user_id={phone_exists['id']}")
+            return render(_read("auth_register.html"), error="این شماره موبایل قبلاً برای حساب دیگری ثبت شده است.",
+                          username=username, full_name=full_name, phone=phone)
         code = f"{_sec.randbelow(1000000):06d}"
         session["reg_pending"] = {"username": username, "password": password,
                                   "full_name": full_name, "phone": phone,

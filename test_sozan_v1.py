@@ -43,6 +43,25 @@ def section(title):
 # ═══════════════════════════════════════════════════════════
 # راه‌اندازی سرور
 # ═══════════════════════════════════════════════════════════
+
+def cleanup_db():
+    """پاک کردن کاربران تستی از اجرای قبلی"""
+    try:
+        from pathlib import Path
+        db_path = Path("data/burn.db")
+        if db_path.exists():
+            import sqlite3
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("DELETE FROM users WHERE username LIKE 'user_%' OR username LIKE 'set_%'")
+            conn.execute("DELETE FROM files")
+            conn.execute("DELETE FROM views")
+            conn.execute("DELETE FROM events")
+            conn.commit()
+            conn.close()
+            print("🧹 دیتابیس تست پاک شد")
+    except Exception as e:
+        print(f"⚠ cleanup error: {e}")
+
 def start_server():
     print("🚀 راه‌اندازی سرور...")
     # ایجاد مسیر log در پوشه پروژه (نه /tmp که در Termux ممکن است نباشد)
@@ -122,7 +141,7 @@ def test_2_auth():
         "password": password,
         "password2": password,
         "full_name": "کاربر تستی",
-        "phone": "09120000001"
+        "phone": f"0912{random.randint(1000000,9999999)}"
     })
     if r.status_code != 200:
         bad(f"مرحله ۱ ثبت‌نام ناموفق: {r.status_code}")
@@ -151,7 +170,13 @@ def test_2_auth():
         "username": username,
         "password": "WrongPass123"
     }, allow_redirects=False)
-    if r.status_code == 200 and "اشتباه" in r.text:
+    if r.status_code == 302:
+        rr = s_wrong.get(f"{BASE}{r.headers['Location']}")
+        if "toast-error" in rr.text:
+            ok("رمز اشتباه رد شد (toast)")
+        else:
+            bad("رمز اشتباه: toast نیامد")
+    elif r.status_code == 200 and "اشتباه" in r.text:
         ok("رمز اشتباه رد شد")
     else:
         bad(f"رمز اشتباه قبول شد! status={r.status_code}")
@@ -376,7 +401,12 @@ def test_6_security():
             "username": "nonexistent_user_xyz",
             "password": "wrong"
         }, allow_redirects=False)
-        if r.status_code == 200 and "تلاش بیش از حد" in r.text:
+        if r.status_code == 302:
+            rr = s.get(f"{BASE}{r.headers['Location']}")
+            if "تلاش بیش از حد" in rr.text:
+                ok(f"Rate limit فعال شد در تلاش {i+1}")
+                return
+        elif r.status_code == 200 and "تلاش بیش از حد" in r.text:
             ok(f"Rate limit فعال شد در تلاش {i+1}")
             return
     
@@ -438,6 +468,7 @@ def main():
     
     proc = None
     try:
+        cleanup_db()
         proc = start_server()
         
         test_1_health()
@@ -485,7 +516,7 @@ def test_8_settings():
     print("  [log] ثبت‌نام...")
     r = s.post(f"{BASE}/register", data={"username": username, "password": password,
                                          "password2": password, "full_name": "تنظیمات تست",
-                                         "phone": "09120000002"})
+                                         "phone": f"0912{random.randint(2000000,2999999)}"})
     m = re.search(r'data-demo-code="(\d{6})"', r.text)
     if not m:
         bad("ثبت‌نام شکست"); return
@@ -509,12 +540,13 @@ def test_8_settings():
                 ok("گام ۲: صفحه اختصاصی شماره جدید")
             else:
                 bad("صفحه شماره جدید باز نشد")
-            r2 = s.post(f"{BASE}/settings/phone/new", data={"new_phone": "09120000003"})
+            new_phone = f"0912{random.randint(3000000,3999999)}"
+            r2 = s.post(f"{BASE}/settings/phone/new", data={"new_phone": new_phone})
             m2 = re.search(r'data-demo-code="(\d{6})"', r2.text)
             if m2:
                 rv3 = s.post(f"{BASE}/settings/otp/verify", data={"code": m2.group(1)})
                 # rv3 بعد از redirect، محتوای /settings را دارد (demo_sms pop شده و نمایش داده شده)
-                if "09120000003" in rv3.text and "تغییر یافت" in rv3.text:
+                if new_phone in rv3.text and "تغییر یافت" in rv3.text:
                     ok("تغییر شماره + پیام موفقیت + هشدار به شماره قدیمی")
                 else:
                     bad("شماره یا پیام موفقیت نیامد")
@@ -554,7 +586,7 @@ def test_8_settings():
     s2 = requests.Session()
     r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
     # اگر rate limit خورد، clear-ban کن و دوباره تلاش کن
-    if r.status_code == 200 and "تلاش بیش از حد" in r.text:
+    if (r.status_code == 200 and "تلاش بیش از حد" in r.text) or (r.status_code == 302 and "تلاش بیش از حد" in s.get(f"{BASE}{r.headers['Location']}").text):
         print("  [log]   rate limit! clear-ban و retry...")
         _cb = s2.get(f"{BASE}/test/clear-ban")
         print(f"  [log]   clear-ban status={_cb.status_code}")
@@ -563,7 +595,7 @@ def test_8_settings():
             r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
             print(f"  [log]   retry login: status={r.status_code}, Location={r.headers.get('Location')}")
     print(f"  [log]   login status={r.status_code}, Location={r.headers.get('Location')}")
-    if r.status_code == 200:
+    if r.status_code == 200 and "toast-error" not in r.text:
         err = re.search(r'badge-bad[^>]*>([^<]+)<', r.text)
         print(f"  [log]   error message: {err.group(1) if err else 'none'}")
         print(f"  [log]   'تلاش بیش از حد' in page: {'تلاش بیش از حد' in r.text}")
@@ -588,7 +620,16 @@ def test_8_settings():
     # ── حذف حساب ──
     s2.post(f"{BASE}/settings/delete", data={"password": newpass, "ack": "on"})
     r = s2.post(f"{BASE}/login", data={"username": username, "password": newpass}, allow_redirects=False)
-    ok("حساب حذف شد") if r.status_code == 200 else bad("حذف حساب")
+    if r.status_code == 200:
+        ok("حساب حذف شد")
+    elif r.status_code == 302:
+        rr = s2.get(f"{BASE}{r.headers['Location']}")
+        if "toast-error" in rr.text:
+            ok("حساب حذف شد (toast)")
+        else:
+            bad("حذف حساب")
+    else:
+        bad(f"حذف حساب: {r.status_code}")
 
 if __name__ == "__main__":
     sys.exit(main())

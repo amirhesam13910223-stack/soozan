@@ -1,18 +1,25 @@
-{% extends "app.html" %}
-{% block title %}{% if mode == "login" %}ورود{% else %}ثبت‌نام{% endif %} — سوزان</main>
-{% endblock %}
-
-{% block head %}<style nonce="{{ nonce }}">
-.auth-wrap{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
-.auth-wrap > .wrap{max-width:430px;width:100%}
-.auth-brand{text-align:center;margin-bottom:28px}
-.auth-brand .logo{font-size:52px;display:block;margin-bottom:8px}
-.auth-brand h1{font-size:22px;font-weight:700}
-.auth-brand p{color:var(--dim);font-size:13px;margin-top:4px}
-</style>
-{% endblock %}
-
-{% block app_content %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سوزان — Auth</title>
+    <link rel="stylesheet" href="/static/mgmt.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Vazirmatn', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #e4e4e4;
+        }
+    </style>
+</head>
+<body>
 <main class='auth-wrap'>
 <div class="wrap" style="max-width:430px;margin-top:8vh">
   <div style="text-align:center;margin-bottom:26px" data-reveal>
@@ -59,20 +66,6 @@
     </p>
   </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script nonce="{{ nonce }}">
-$("eye").addEventListener("click",()=>{
-  const p=$("password"),show=p.type==="password";
-  p.type=show?"text":"password";
-  $("eye").textContent=show?"🙈":"👁️";
-});
-$("form").addEventListener("submit",()=>{
-  const b=$("submitBtn");b.disabled=true;
-  b.innerHTML='<span class="ripple" style="display:none"></span>⏳ لطفاً صبر کنید…';
-});
-</script>
-{% endblock %}
-
-{% block footer %}{% endblock %}
+{% include "toast.html" %}
+</body>
+</html>

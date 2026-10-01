@@ -1,6 +1,26 @@
-{% extends "app.html" %}
-{% block head %}<link rel="stylesheet" href="/static/mgmt.css">{% endblock %}
-{% block title %}سوزان — تأیید کد{% endblock %}
-{% block app_content %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سوزان — Auth Otp</title>
+    <link rel="stylesheet" href="/static/mgmt.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Vazirmatn', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #e4e4e4;
+        }
+    </style>
+</head>
+<body>
 {% include "otp_shared.html" %}
-{% endblock %}
+{% include "toast.html" %}
+</body>
+</html>

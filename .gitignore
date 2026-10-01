@@ -35,3 +35,4 @@ server.log
 venv/
 
 logs/
+fix_*.py

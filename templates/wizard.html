@@ -350,13 +350,18 @@ $("watermark").addEventListener("input",chips);
 
 $("btnBack2").addEventListener("click",()=>showStep(1));
 $("btnNext2").addEventListener("click",()=>{
-  if($("hasPassword").checked&&$("password").value.length<4)
-    return toast("رمز باید حداقل ۴ کاراکتر باشد","err");
-  if($("timerMode").value!=="none"){
-    const s=+$("timerSec").value;
-    if(s<5||s>3600)return toast("تایمر باید بین ۵ تا ۶۰۰ ثانیه باشد","err");
-  }
-  showStep(3);doUpload();
+    const hp=$("hasPassword"), pw=$("password"), tm=$("timerMode"), ts=$("timerSec");
+    if(hp && hp.checked){
+        if(!pw || pw.value.length<4) return toast("رمز باید حداقل ۴ کاراکتر باشد","err");
+        const pw2=$("password2");
+        if(pw2 && pw2.value!==pw.value) return toast("تکرار رمز با رمز یکسان نیست","err");
+    }
+    if(tm && tm.value!=="none" && ts){
+        const s=+ts.value;
+        if(!(s>=5&&s<=3600)) return toast("تایمر باید بین ۵ تا ۳۶۰۰ ثانیه باشد","err");
+    }
+    if(typeof selectedFile==="undefined" || !selectedFile) return toast("اول یک فایل انتخاب کنید","err");
+    showStep(3);doUpload();
 });
 
 /* ── مرحله ۳ ── */

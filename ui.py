@@ -42,3 +42,10 @@ def serve_asset(path: str):
     resp = send_from_directory(ASSETS_DIR, path)
     resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return resp
+
+
+def toast(type, message, title=None):
+    """صف پیام toast در session برای نمایش در صفحه بعد"""
+    from flask import session
+    session["toast"] = {"type": type, "message": message, "title": title}
+    session.modified = True

@@ -4,6 +4,7 @@
 📤 ویزارد آپلود سوزان
 """
 
+from ui import toast
 import json
 import time
 import secrets
@@ -146,36 +147,30 @@ def _parse_settings(form) -> dict:
 def api_upload():
     ip = client_ip()
     if not Security.rate_check(ip, "upload"):
-        toast("error", "تلاش بیش از حد. چند دقیقه صبر کنید.", "آپلود ناموفق")
-        return redirect("/wizard")
+        return jsonify(ok=False, error="تلاش بیش از حد"), 429
 
     user_id = session.get("user_id")
     f = request.files.get("file")
     if not f:
-        toast("error", "فایلی ارسال نشده.", "آپلود ناموفق")
-        return redirect("/wizard")
+        return jsonify(ok=False, error="فایلی ارسال نشده"), 400
 
     data = f.read()
     if not data:
-        toast("error", "فایل خالی است.", "آپلود ناموفق")
-        return redirect("/wizard")
+        return jsonify(ok=False, error="فایل خالی است"), 400
     if len(data) > MAX_UPLOAD:
-        toast("error", "فایل بیش از ۱۰۰ مگابایت است.", "آپلود ناموفق")
-        return redirect("/wizard")
+        return jsonify(ok=False, error="فایل بیش از ۱۰۰ مگابایت است"), 413
 
     filename = (f.filename or "unnamed").strip()[:200]
     mime, family = sniff_mime(data, filename)
     if mime is None or family == "unknown":
         audit("UPLOAD_BAD_TYPE", ip, f"filename={filename}")
-        toast("error", "نوع فایل پشتیبانی نمی‌شود.", "آپلود ناموفق")
-        return redirect("/wizard")
+        return jsonify(ok=False, error="نوع فایل پشتیبانی نمی‌شود"), 415
 
     # اعتبارسنجی تنظیمات
     try:
         settings = _parse_settings(request.form)
     except ValueError as e:
-        toast("error", str(e), "آپلود ناموفق")
-        return redirect("/wizard")
+        return jsonify(ok=False, error=str(e)), 400
 
     # رمزنگاری
     ct, wrapped_dek = FileCrypto.encrypt_file(data)

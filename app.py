@@ -728,6 +728,97 @@ def _no_store_html(resp):
         resp.headers["Pragma"] = "no-cache"
     return resp
 
+
+
+# ═══════════════════════════════════════════════════════════
+# Error Handlers (مدیریت خطاها)
+# ═══════════════════════════════════════════════════════════
+
+@app.errorhandler(404)
+def error_404(e):
+    """صفحه یافت نشد"""
+    return render_template("error.html",
+                         error_code=404,
+                         error_title="صفحه یافت نشد",
+                         error_message="صفحه‌ای که دنبال آن هستید وجود ندارد یا حذف شده است.",
+                         error_details=f"مسیر درخواستی: {request.path}"), 404
+
+@app.errorhandler(403)
+def error_403(e):
+    """دسترسی غیرمجاز"""
+    return render_template("error.html",
+                         error_code=403,
+                         error_title="دسترسی غیرمجاز",
+                         error_message="شما مجوز دسترسی به این صفحه را ندارید.",
+                         error_details="لطفاً وارد حساب کاربری خود شوید یا با مدیر سیستم تماس بگیرید."), 403
+
+@app.errorhandler(429)
+def error_429(e):
+    """تعداد درخواست‌ها بیش از حد مجاز"""
+    return render_template("error.html",
+                         error_code=429,
+                         error_title="تعداد درخواست‌ها بیش از حد مجاز",
+                         error_message="شما بیش از حد مجاز درخواست ارسال کرده‌اید.",
+                         error_details="لطفاً چند دقیقه صبر کنید و دوباره تلاش کنید."), 429
+
+@app.errorhandler(500)
+def error_500(e):
+    """خطای داخلی سرور"""
+    error_id = str(uuid.uuid4())[:8]
+    # لاگ خطا با شناسه
+    import traceback
+    error_trace = traceback.format_exc()
+    print(f"[ERROR {error_id}] {request.path}: {error_trace}", flush=True)
+    
+    return render_template("error.html",
+                         error_code=500,
+                         error_title="خطای داخلی سرور",
+                         error_message="متأسفانه مشکلی در سرور رخ داده است.",
+                         error_details="تیم فنی از این مشکل مطلع شد و در حال بررسی است.",
+                         error_id=error_id), 500
+
+@app.errorhandler(400)
+def error_400(e):
+    """درخواست نامعتبر"""
+    return render_template("error.html",
+                         error_code=400,
+                         error_title="درخواست نامعتبر",
+                         error_message="درخواست شما قابل پردازش نیست.",
+                         error_details="لطفاً اطلاعات فرم را بررسی کنید و دوباره تلاش کنید."), 400
+
+@app.errorhandler(401)
+def error_401(e):
+    """احراز هویت لازم است"""
+    return render_template("error.html",
+                         error_code=401,
+                         error_title="احراز هویت لازم است",
+                         error_message="برای دسترسی به این صفحه باید وارد حساب کاربری خود شوید.",
+                         error_details=""), 401
+
+@app.errorhandler(405)
+def error_405(e):
+    """متد HTTP مجاز نیست"""
+    return render_template("error.html",
+                         error_code=405,
+                         error_title="متد درخواست مجاز نیست",
+                         error_message="این صفحه از متد درخواست شما پشتیبانی نمی‌کند.",
+                         error_details=f"متد مجاز: {', '.join(e.valid_methods or [])}"), 405
+
+@app.errorhandler(Exception)
+def error_generic(e):
+    """خطای پیش‌بینی نشده"""
+    error_id = str(uuid.uuid4())[:8]
+    import traceback
+    error_trace = traceback.format_exc()
+    print(f"[ERROR {error_id}] {request.path}: {error_trace}", flush=True)
+    
+    return render_template("error.html",
+                         error_code=500,
+                         error_title="خطای پیش‌بینی نشده",
+                         error_message="مشکلی در پردازش درخواست شما رخ داد.",
+                         error_details="تیم فنی از این مشکل مطلع شد.",
+                         error_id=error_id), 500
+
 if __name__ == "__main__":
     if DEV_MODE:
         print("!" * 56)

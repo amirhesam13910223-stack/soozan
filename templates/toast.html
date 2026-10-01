@@ -1,0 +1,83 @@
+{% if toast %}
+<div id="toast" class="toast toast-{{ toast.type }}" style="
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 400px;
+    animation: slideIn 0.3s ease-out;
+">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 20px;">
+            {% if toast.type == 'error' %}❌
+            {% elif toast.type == 'warning' %}⚠️
+            {% elif toast.type == 'success' %}✅
+            {% else %}ℹ️{% endif %}
+        </span>
+        <div>
+            {% if toast.title %}
+            <div style="font-weight: 700; margin-bottom: 4px;">{{ toast.title }}</div>
+            {% endif %}
+            <div>{{ toast.message }}</div>
+        </div>
+        <button onclick="document.getElementById('toast').remove()" style="
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            margin-left: auto;
+            opacity: 0.7;
+        ">×</button>
+    </div>
+</div>
+
+<style>
+.toast-error { background: #fee; color: #c33; border: 1px solid #fcc; }
+.toast-warning { background: #ffeaa7; color: #7d6608; border: 1px solid #fdcb6e; }
+.toast-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.toast-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
+
+<script>
+setTimeout(function() {
+    var toast = document.getElementById('toast');
+    if (toast) {
+        toast.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(function() { toast.remove(); }, 300);
+    }
+}, 5000);
+
+// Animation for slide out
+var style = document.createElement('style');
+style.textContent = `
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endif %}

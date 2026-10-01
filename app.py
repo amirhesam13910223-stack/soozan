@@ -734,6 +734,20 @@ def error_generic(e):
                         "تیم فنی از این مشکل مطلع شد.",
                         error_id=error_id), 500
 
+
+def toast(type, message, title=None):
+    """ارسال پیام toast به کاربر"""
+    from flask import session
+    session['toast'] = {'type': type, 'message': message, 'title': title}
+    session.modified = True
+
+@app.context_processor
+def inject_toast():
+    """تزریق toast به تمام template ها"""
+    from flask import session
+    toast_data = session.pop('toast', None)
+    return {'toast': toast_data}
+
 if __name__ == "__main__":
     if DEV_MODE:
         print("!" * 56)

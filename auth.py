@@ -64,7 +64,8 @@ def login():
         ok, user_id, msg = Auth.login(username, password)
         if not ok:
             Security.violation(ip, "login_fail")
-            return render(_read("auth.html"), mode="login", error=msg, username=username)
+            toast("error", msg, "ورود ناموفق")
+            return redirect("/login")
         # اگر 2FA فعال است، به مرحله دوم برو
         if Auth.is_totp_enabled(user_id):
             session["pending_2fa_user_id"] = user_id
@@ -149,7 +150,8 @@ def register():
             code = request.form.get("code", "").strip()
             if not pend or _time.time() > pend.get("exp", 0):
                 session.pop("reg_pending", None)
-                return render(_read("auth_register.html"), error="جلسه منقضی شد؛ دوباره شروع کنید.")
+                toast("error", "جلسه منقضی شد؛ دوباره شروع کنید.", "ثبت‌نام ناموفق")
+                return redirect("/register")
             if pend.get("tries", 0) >= 4:
                 pend["locked"] = True; pend["code"] = ""; session["reg_pending"] = pend
                 return render(_read("auth_verify.html"), phone=pend["phone"], error="کد باطل شد؛ ارسال مجدد را بزن.",
@@ -163,7 +165,8 @@ def register():
             ok, msg = Auth.register(pend["username"], pend["password"])
             if not ok:
                 session.pop("reg_pending", None)
-                return render(_read("auth_register.html"), error=msg, username=pend["username"])
+                toast("error", msg, "ثبت‌نام ناموفق")
+                return redirect("/register")
             with get_db() as c:
                 c.execute("UPDATE users SET full_name=?, phone=?, phone_verified=1 WHERE username=?",
                           (pend["full_name"], pend["phone"], pend["username"]))

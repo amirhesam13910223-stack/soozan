@@ -661,163 +661,78 @@ def static_files(filename):
     return send_from_directory(_P(__file__).parent / "static", filename)
 
 
-# ═══ ثبت‌کننده‌های سراسری (باید قبل از __main__ باشند) ═══
-@app.context_processor
-def _otp_global_ctx():
-    import time as _t3, os as _os3
-    path = request.path
-    order = []
-    if path.startswith("/settings"):
-        order = ["set_otp"]
-    elif path.startswith("/login/phone"):
-        order = ["login_pending"]
-    elif path.startswith("/register"):
-        order = ["reg_pending"]
-    elif path.startswith("/manage"):
-        order = ["mgmt_stepup", "manage_otp"]
-    order += [k for k in ("set_otp", "login_pending", "reg_pending", "mgmt_stepup", "manage_otp") if k not in order]
-    pend = None
-    for _k in order:
-        _v = session.get(_k)
-        if isinstance(_v, dict) and _v.get("code"):
-            pend = _v
-            break
-    rem = 120
-    if pend:
-        rem = max(0, int(pend.get("exp", 0) - _t3.time()))
-    dev = _os3.environ.get("SOOZAN_DEV_MODE", "") in ("1", "true", "yes") or request.remote_addr in ("127.0.0.1", "::1", "localhost")
-    print("OTPCTX", request.path, "rem=", rem, "exp=", pend.get("exp") if pend else None, flush=True)
-    return dict(now_ts=_t3.time(), otp_pend=pend, otp_rem=rem, otp_dev=dev)
-
-@app.before_request
-def _generic_resend():
-    from flask import redirect as _red3
-    from urllib.parse import urlparse as _up3
-    def _return_path():
-        ref = request.referrer or ""
-        if ref:
-            rp = _up3(ref).path
-            if rp and not rp.endswith("/resend"):
-                return rp
-        pth = request.path
-        if pth.startswith("/settings"):
-            return "/settings/phone/start"
-        if pth.startswith("/register"):
-            return "/register"
-        if pth.startswith("/login/phone"):
-            return "/login/phone"
-        return pth
-    if request.method == "POST" and request.form.get("resend") == "1":
-        import secrets as _sec3, time as _t4
-        for _k in ('login_pending', 'manage_otp', 'mgmt_stepup', 'reg_pending', 'set_otp'):
-            _v = session.get(_k)
-            if isinstance(_v, dict) and _v.get("code"):
-                _v["code"] = f"{_sec3.randbelow(1000000):06d}"
-                _v["exp"] = _t4.time() + 120
-                _v["tries"] = 0
-                _v["locked"] = False
-                session[_k] = _v
-                session.modified = True
-                return _red3(_return_path())
-        return _red3(_return_path())
-
-@app.after_request
-def _no_store_html(resp):
-    if resp.mimetype and resp.mimetype.startswith("text/html"):
-        resp.headers["Cache-Control"] = "no-store, max-age=0, must-revalidate"
-        resp.headers["Pragma"] = "no-cache"
-    return resp
-
-
 
 # ═══════════════════════════════════════════════════════════
 # Error Handlers (مدیریت خطاها)
 # ═══════════════════════════════════════════════════════════
 
+def _render_error(code, title, message, details=None, error_id=None):
+    """رندر صفحه خطا با سیستم پروژه"""
+    from ui import render as _ui_render
+    from pathlib import Path as _P
+    tpl = (_P(__file__).parent / "templates" / "error.html").read_text(encoding="utf-8")
+    return _ui_render(tpl,
+                     error_code=code,
+                     error_title=title,
+                     error_message=message,
+                     error_details=details,
+                     error_id=error_id)
+
 @app.errorhandler(404)
 def error_404(e):
-    """صفحه یافت نشد"""
-    return render_template("error.html",
-                         error_code=404,
-                         error_title="صفحه یافت نشد",
-                         error_message="صفحه‌ای که دنبال آن هستید وجود ندارد یا حذف شده است.",
-                         error_details=f"مسیر درخواستی: {request.path}"), 404
+    return _render_error(404, "صفحه یافت نشد",
+                        "صفحه‌ای که دنبال آن هستید وجود ندارد یا حذف شده است.",
+                        f"مسیر درخواستی: {request.path}"), 404
 
 @app.errorhandler(403)
 def error_403(e):
-    """دسترسی غیرمجاز"""
-    return render_template("error.html",
-                         error_code=403,
-                         error_title="دسترسی غیرمجاز",
-                         error_message="شما مجوز دسترسی به این صفحه را ندارید.",
-                         error_details="لطفاً وارد حساب کاربری خود شوید یا با مدیر سیستم تماس بگیرید."), 403
+    return _render_error(403, "دسترسی غیرمجاز",
+                        "شما مجوز دسترسی به این صفحه را ندارید.",
+                        "لطفاً وارد حساب کاربری خود شوید یا با مدیر سیستم تماس بگیرید."), 403
 
 @app.errorhandler(429)
 def error_429(e):
-    """تعداد درخواست‌ها بیش از حد مجاز"""
-    return render_template("error.html",
-                         error_code=429,
-                         error_title="تعداد درخواست‌ها بیش از حد مجاز",
-                         error_message="شما بیش از حد مجاز درخواست ارسال کرده‌اید.",
-                         error_details="لطفاً چند دقیقه صبر کنید و دوباره تلاش کنید."), 429
+    return _render_error(429, "تعداد درخواست‌ها بیش از حد مجاز",
+                        "شما بیش از حد مجاز درخواست ارسال کرده‌اید.",
+                        "لطفاً چند دقیقه صبر کنید و دوباره تلاش کنید."), 429
 
 @app.errorhandler(500)
 def error_500(e):
-    """خطای داخلی سرور"""
-    error_id = str(uuid.uuid4())[:8]
-    # لاگ خطا با شناسه
-    import traceback
-    error_trace = traceback.format_exc()
-    print(f"[ERROR {error_id}] {request.path}: {error_trace}", flush=True)
-    
-    return render_template("error.html",
-                         error_code=500,
-                         error_title="خطای داخلی سرور",
-                         error_message="متأسفانه مشکلی در سرور رخ داده است.",
-                         error_details="تیم فنی از این مشکل مطلع شد و در حال بررسی است.",
-                         error_id=error_id), 500
+    import traceback as _tb, uuid as _uuid
+    error_id = str(_uuid.uuid4())[:8]
+    print(f"[ERROR {error_id}] {request.path}: {_tb.format_exc()}", flush=True)
+    return _render_error(500, "خطای داخلی سرور",
+                        "متأسفانه مشکلی در سرور رخ داده است.",
+                        "تیم فنی از این مشکل مطلع شد و در حال بررسی است.",
+                        error_id=error_id), 500
 
 @app.errorhandler(400)
 def error_400(e):
-    """درخواست نامعتبر"""
-    return render_template("error.html",
-                         error_code=400,
-                         error_title="درخواست نامعتبر",
-                         error_message="درخواست شما قابل پردازش نیست.",
-                         error_details="لطفاً اطلاعات فرم را بررسی کنید و دوباره تلاش کنید."), 400
+    return _render_error(400, "درخواست نامعتبر",
+                        "درخواست شما قابل پردازش نیست.",
+                        "لطفاً اطلاعات فرم را بررسی کنید و دوباره تلاش کنید."), 400
 
 @app.errorhandler(401)
 def error_401(e):
-    """احراز هویت لازم است"""
-    return render_template("error.html",
-                         error_code=401,
-                         error_title="احراز هویت لازم است",
-                         error_message="برای دسترسی به این صفحه باید وارد حساب کاربری خود شوید.",
-                         error_details=""), 401
+    return _render_error(401, "احراز هویت لازم است",
+                        "برای دسترسی به این صفحه باید وارد حساب کاربری خود شوید."), 401
 
 @app.errorhandler(405)
 def error_405(e):
-    """متد HTTP مجاز نیست"""
-    return render_template("error.html",
-                         error_code=405,
-                         error_title="متد درخواست مجاز نیست",
-                         error_message="این صفحه از متد درخواست شما پشتیبانی نمی‌کند.",
-                         error_details=f"متد مجاز: {', '.join(e.valid_methods or [])}"), 405
+    valid = ", ".join(e.valid_methods or [])
+    return _render_error(405, "متد درخواست مجاز نیست",
+                        "این صفحه از متد درخواست شما پشتیبانی نمی‌کند.",
+                        f"متد مجاز: {valid}"), 405
 
 @app.errorhandler(Exception)
 def error_generic(e):
-    """خطای پیش‌بینی نشده"""
-    error_id = str(uuid.uuid4())[:8]
-    import traceback
-    error_trace = traceback.format_exc()
-    print(f"[ERROR {error_id}] {request.path}: {error_trace}", flush=True)
-    
-    return render_template("error.html",
-                         error_code=500,
-                         error_title="خطای پیش‌بینی نشده",
-                         error_message="مشکلی در پردازش درخواست شما رخ داد.",
-                         error_details="تیم فنی از این مشکل مطلع شد.",
-                         error_id=error_id), 500
+    import traceback as _tb, uuid as _uuid
+    error_id = str(_uuid.uuid4())[:8]
+    print(f"[ERROR {error_id}] {request.path}: {_tb.format_exc()}", flush=True)
+    return _render_error(500, "خطای پیش‌بینی نشده",
+                        "مشکلی در پردازش درخواست شما رخ داد.",
+                        "تیم فنی از این مشکل مطلع شد.",
+                        error_id=error_id), 500
 
 if __name__ == "__main__":
     if DEV_MODE:

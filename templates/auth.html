@@ -1,71 +1,54 @@
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سوزان — Auth</title>
-    <link rel="stylesheet" href="/static/mgmt.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Vazirmatn', Tahoma, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            color: #e4e4e4;
-        }
-    </style>
-</head>
-<body>
-<main class='auth-wrap'>
-<div class="wrap" style="max-width:430px;margin-top:8vh">
-  <div style="text-align:center;margin-bottom:26px" data-reveal>
-    <div class="brand" style="justify-content:center">
-      <span class="logo">🔥</span> سوزان
-    </div>
-    <p style="color:var(--dim);font-size:13px;margin-top:10px">
-      پلتفرم اشتراک محتوای خودتخریب‌شونده
-    </p>
+{% extends "app.html" %}
+{% block title %}ورود — سوزان{% endblock %}
+
+{% block app_content %}
+<style nonce="{{ nonce }}">
+.au-card{background:#141a2c;border:1px solid #232c47;border-radius:16px;padding:22px}
+.au-in{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #2a3350;background:#0e1424;color:#e8ecf8;font-size:14px}
+.au-in:focus{outline:none;border-color:#ff7a45}
+.au-lb{display:block;font-size:12.5px;color:#93a0b8;margin:0 0 6px}
+.au-fd{margin-bottom:14px}
+.au-btn{width:100%;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#ff7a45,#ff5330);color:#fff;font-size:15px;font-weight:800;cursor:pointer}
+.au-tab{flex:1;text-align:center;padding:11px;border-radius:12px;font-weight:700;font-size:14px;text-decoration:none}
+.au-tab.on{background:linear-gradient(135deg,#ff7a45,#ff5330);color:#fff}
+.au-tab.off{background:#1b2340;color:#93a0b8}
+.au-err{background:#3a1420;border:1px solid #7a2438;color:#ff8fa3;border-radius:10px;padding:11px;font-size:13px;margin-bottom:12px;line-height:1.8}
+.au-hint{font-size:11.5px;color:#6b7690;margin-top:5px}
+</style>
+<div style="max-width:430px;margin:28px auto 90px;padding:0 16px">
+  <div style="text-align:center;margin-bottom:16px">
+    <div style="font-size:52px;line-height:1">🔥</div>
+    <h1 style="font-size:26px;font-weight:800;margin-top:8px;color:#e8ecf8">سوزان</h1>
+    <p style="color:#93a0b8;font-size:13px;margin-top:4px">پلتفرم اشتراک محتوای خودتخریب‌شونده</p>
   </div>
-
-  <div class="card pad" data-reveal>
-      {% include "auth_tabs.html" %}
-{% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
-    {% if success %}<div class="alert alert-ok">{{ success }}</div>{% endif %}
-
-    <form method="post" id="form">
-      <div class="field">
-        <label class="label" for="username">نام کاربری</label>
-        <input class="input" type="text" id="username" name="username" required
-               minlength="3" maxlength="32" pattern="[a-zA-Z0-9_-]+"
-               autocomplete="username" placeholder="حروف، عدد، - یا _"
-               value="{{ username or '' }}">
+  <div class="au-card">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <span class="au-tab on">🔐 ورود</span>
+      <a class="au-tab off" href="/register">✨ ثبت‌نام</a>
+    </div>
+    {% if error %}<div class="au-err">⚠️ {{ error }}</div>{% endif %}
+    <form method="post" action="/login">
+      <div class="au-fd">
+        <label class="au-lb">نام کاربری</label>
+        <input class="au-in" name="username" value="{{ username|default('') }}" placeholder="حروف، عدد، - یا _" required>
       </div>
-
-      <div class="field">
-        <label class="label" for="password">رمز عبور</label>
+      <div class="au-fd">
+        <label class="au-lb">رمز عبور</label>
         <div style="position:relative">
-          <input class="input" type="password" id="password" name="password" required
-                 minlength="8" placeholder="حداقل ۸ کاراکتر"
-                 autocomplete="{% if mode=='login' %}current-password{% else %}new-password{% endif %}"
-                 style="padding-inline-end:46px">
-          <button type="button" id="eye" style="position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:17px;cursor:pointer;padding:6px">👁️</button>
+          <input class="au-in" type="password" name="password" id="pw" placeholder="حداقل ۸ کاراکتر" required style="padding-left:44px">
+          <button type="button" id="eye" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:17px;cursor:pointer">👁️</button>
         </div>
       </div>
-
-      <button type="submit" class="btn btn-acc btn-block" id="submitBtn">
-        {% if mode == "login" %}🔐 ورود به حساب{% else %}✨ ایجاد حساب{% endif %}
-      </button>
+      <button class="au-btn" type="submit">🔐 ورود به حساب</button>
     </form>
-
-    <p style="text-align:center;margin-top:18px;font-size:12px;color:var(--mute)">
-      محتوا پس از نمایش، برای همیشه می‌سوزد 🔥
-    </p>
+    <p style="text-align:center;margin-top:14px;font-size:12.5px;color:#93a0b8">حساب نداری؟ <a href="/register" style="color:#ff7a45;font-weight:700;text-decoration:none">ثبت‌نام کن</a></p>
   </div>
+  <p style="text-align:center;margin-top:14px;font-size:12px;color:#6b7690">محتوا پس از نمایش، برای همیشه می‌سوزد 🔥</p>
 </div>
-{% include "toast.html" %}
-</body>
-</html>
+<script nonce="{{ nonce }}">
+document.getElementById("eye").addEventListener("click",function(){
+  var p=document.getElementById("pw");
+  p.type = p.type==="password" ? "text" : "password";
+});
+</script>
+{% endblock %}

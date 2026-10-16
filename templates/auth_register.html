@@ -1,121 +1,78 @@
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سوزان — Auth Register</title>
-    <link rel="stylesheet" href="/static/mgmt.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Vazirmatn', Tahoma, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            color: #e4e4e4;
-        }
-    </style>
-</head>
-<body>
-<main style="min-height:100vh;display:grid;place-items:center;padding:24px 16px"><div class="wrap" style="max-width:430px;width:100%">
-    <div style="text-align:center;margin-bottom:24px">
-      <span style="font-size:52px">🔥</span>
-      <h1 style="font-size:22px;font-weight:700;margin-top:6px">سوزان</h1>
-      <p style="color:var(--dim);font-size:13px;margin-top:4px">ساخت حساب جدید</p>
+{% extends "app.html" %}
+{% block title %}ثبت‌نام — سوزان{% endblock %}
+
+{% block app_content %}
+<style nonce="{{ nonce }}">
+.au-card{background:#141a2c;border:1px solid #232c47;border-radius:16px;padding:22px}
+.au-in{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #2a3350;background:#0e1424;color:#e8ecf8;font-size:14px}
+.au-in:focus{outline:none;border-color:#ff7a45}
+.au-lb{display:block;font-size:12.5px;color:#93a0b8;margin:0 0 6px}
+.au-fd{margin-bottom:14px}
+.au-btn{width:100%;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#ff7a45,#ff5330);color:#fff;font-size:15px;font-weight:800;cursor:pointer}
+.au-tab{flex:1;text-align:center;padding:11px;border-radius:12px;font-weight:700;font-size:14px;text-decoration:none}
+.au-tab.on{background:linear-gradient(135deg,#ff7a45,#ff5330);color:#fff}
+.au-tab.off{background:#1b2340;color:#93a0b8}
+.au-err{background:#3a1420;border:1px solid #7a2438;color:#ff8fa3;border-radius:10px;padding:11px;font-size:13px;margin-bottom:12px;line-height:1.8}
+.au-hint{font-size:11.5px;color:#6b7690;margin-top:5px}
+</style>
+<div style="max-width:430px;margin:28px auto 90px;padding:0 16px">
+  <div style="text-align:center;margin-bottom:16px">
+    <div style="font-size:52px;line-height:1">🔥</div>
+    <h1 style="font-size:26px;font-weight:800;margin-top:8px;color:#e8ecf8">سوزان</h1>
+    <p style="color:#93a0b8;font-size:13px;margin-top:4px">ساخت حساب جدید</p>
+  </div>
+  <div class="au-card">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <a class="au-tab off" href="/login">🔐 ورود</a>
+      <span class="au-tab on">✨ ثبت‌نام</span>
     </div>
-<div class="card pad">
-      {% include "auth_tabs.html" %}
-      {% if error %}<div class="badge badge-bad" style="display:block;margin-bottom:12px">{{ error }}</div>{% endif %}
-      <form method="post" action="/register" id="regForm">
-        <div class="field">
-          <label class="label" for="username">نام کاربری</label>
-          <input class="input" id="username" name="username" value="{{ username or '' }}" placeholder="مثال: ali_rezaei" required autocomplete="username">
-          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">حداقل ۳ کاراکتر؛ حروف انگلیسی، عدد و _</small>
+    {% if error %}<div class="au-err">⚠️ {{ error }}</div>{% endif %}
+    <form method="post" action="/register">
+      <div class="au-fd">
+        <label class="au-lb">نام کاربری</label>
+        <input class="au-in" name="username" value="{{ username|default('') }}" placeholder="مثال: ali_rezaei" required>
+        <div class="au-hint">حداقل ۳ کاراکتر: حروف انگلیسی، عدد و _</div>
+      </div>
+      <div class="au-fd">
+        <label class="au-lb">رمز عبور</label>
+        <div style="position:relative">
+          <input class="au-in" type="password" name="password" id="pw" placeholder="حداقل ۸ کاراکتر" required style="padding-left:44px">
+          <button type="button" id="eye" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:17px;cursor:pointer">👁️</button>
         </div>
-        <div class="field">
-          <label class="label" for="password">رمز عبور</label>
-          <div style="position:relative">
-            <input class="input" type="password" id="password" name="password" placeholder="حداقل ۸ کاراکتر" required autocomplete="new-password" style="padding-left:44px">
-            <button type="button" id="togglePw" aria-label="نمایش/مخفی رمز" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--dim);cursor:pointer;padding:6px;font-size:16px">👁</button>
-          </div>
-          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">ترکیب حرف بزرگ، کوچک و عدد = رمز قوی‌تر</small>
-        </div>
-        <div class="field">
-          <label class="label" for="password2">تکرار رمز عبور</label>
-          <input class="input" type="password" id="password2" name="password2" placeholder="همان رمز را دوباره بنویس" required autocomplete="new-password">
-          <small id="matchHint" style="display:block;font-size:11px;margin-top:5px;color:var(--mute)">برای تأیید، رمز را دقیقاً مثل بالا وارد کنید</small>
-        </div>
-        <div class="field">
-          <label class="label" for="full_name">نام و نام خانوادگی</label>
-          <input class="input" id="full_name" name="full_name" value="{{ full_name or '' }}" placeholder="مثال: علی رضایی" required>
-          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">در پروفایل شما نمایش داده می‌شود</small>
-        </div>
-        <div class="field">
-          <label class="label" for="phone">شماره موبایل</label>
-          <input class="input" id="phone" name="phone" inputmode="numeric" placeholder="09123456789" value="{{ phone or '' }}" required style="direction:ltr;text-align:left">
-          <small style="display:block;color:var(--mute);font-size:11px;margin-top:5px">برای کد تأیید ورود؛ با 09 شروع می‌شود</small>
-        </div>
-        <button class="btn btn-acc btn-block" type="submit" id="submitBtn">ادامه ←</button>
-      </form>
-      <p style="text-align:center;margin-top:14px"><a href="/login" style="color:var(--acc);font-size:13px;text-decoration:none">حساب داری؟ وارد شو</a></p>
-    </div>
-  </div></main>
+        <div class="au-hint">ترکیب حرف بزرگ، کوچک و عدد = رمز قوی‌تر</div>
+      </div>
+      <div class="au-fd">
+        <label class="au-lb">تکرار رمز عبور</label>
+        <input class="au-in" type="password" name="password2" id="pw2" placeholder="همان رمز را دوباره بنویس" required>
+        <div class="au-hint" id="match" style="display:none"></div>
+      </div>
+      <div class="au-fd">
+        <label class="au-lb">نام و نام خانوادگی</label>
+        <input class="au-in" name="full_name" value="{{ full_name|default('') }}" placeholder="مثال: علی رضایی" required>
+        <div class="au-hint">در پروفایل شما نمایش داده می‌شود</div>
+      </div>
+      <div class="au-fd">
+        <label class="au-lb">شماره موبایل</label>
+        <input class="au-in" name="phone" value="{{ phone|default('') }}" placeholder="09123456789" inputmode="numeric" required dir="ltr" style="text-align:left">
+        <div class="au-hint">برای کد تأیید و ورود؛ با 09 شروع می‌شود</div>
+      </div>
+      <button class="au-btn" type="submit">ادامه ←</button>
+    </form>
+    <p style="text-align:center;margin-top:14px;font-size:12.5px;color:#93a0b8">حساب داری؟ <a href="/login" style="color:#ff7a45;font-weight:700;text-decoration:none">وارد شو</a></p>
+  </div>
+</div>
 <script nonce="{{ nonce }}">
-(function(){
-  var pw = document.getElementById("password");
-  var pw2 = document.getElementById("password2");
-  var toggle = document.getElementById("togglePw");
-  var hint = document.getElementById("matchHint");
-  var submit = document.getElementById("submitBtn");
-
-  // show/hide فقط برای فیلد اصلی رمز
-  toggle.addEventListener("click", function(){
-    if(pw.type === "password"){
-      pw.type = "text";
-      toggle.textContent = "🙈";
-    } else {
-      pw.type = "password";
-      toggle.textContent = "👁";
-    }
-  });
-
-  // real-time validation تکرار رمز
-  function check(){
-    var v1 = pw.value, v2 = pw2.value;
-    if(!v2){
-      pw2.style.borderColor = "var(--line)";
-      hint.style.color = "var(--mute)";
-      hint.textContent = "برای تأیید، رمز را دقیقاً مثل بالا وارد کنید";
-      return true;
-    }
-    if(v1 === v2){
-      pw2.style.borderColor = "var(--ok)";
-      hint.style.color = "var(--ok)";
-      hint.textContent = "✓ رمزها مطابقت دارند";
-      return true;
-    } else {
-      pw2.style.borderColor = "var(--bad)";
-      hint.style.color = "var(--bad)";
-      hint.textContent = "✗ رمزها یکسان نیستند";
-      return false;
-    }
-  }
-  pw.addEventListener("input", check);
-  pw2.addEventListener("input", check);
-
-  // قبل از ارسال چک نهایی
-  document.getElementById("regForm").addEventListener("submit", function(e){
-    if(pw.value && pw2.value && pw.value !== pw2.value){
-      e.preventDefault();
-      check();
-      pw2.focus();
-    }
-  });
-})();
+document.getElementById("eye").addEventListener("click",function(){
+  var p=document.getElementById("pw");
+  p.type = p.type==="password" ? "text" : "password";
+});
+var pw=document.getElementById("pw"), pw2=document.getElementById("pw2"), mm=document.getElementById("match");
+function chk(){
+  if(!pw2.value){ mm.style.display="none"; return; }
+  mm.style.display="block";
+  if(pw.value===pw2.value){ mm.textContent="✅ رمزها یکسان‌اند"; mm.style.color="#4ecca3"; }
+  else { mm.textContent="❌ رمزها یکسان نیستند"; mm.style.color="#ff8fa3"; }
+}
+pw.addEventListener("input",chk); pw2.addEventListener("input",chk);
 </script>
-{% include "toast.html" %}
-</body>
-</html>
+{% endblock %}
